@@ -123,7 +123,7 @@ Public discovery (any approved site):
   vdr authority:lookup <domain>          DR, TrueDR, trust score, evidence
   vdr discover:find [filters]            Discover trusted sites, ranked by TrueDR
   vdr badge:snippets <domain>            Badge / embed snippets
-  vdr categories:list                    Valid category values (no key needed)
+  vdr categories:list                    Valid category values
 
 Your own sites (owner-scoped):
   vdr sites:list                         List your sites + metrics
@@ -178,7 +178,7 @@ async function main(): Promise<void> {
 		case "sites:list":
 			return request(args, "GET", "/api/v1/sites");
 		case "categories:list":
-			return request(args, "GET", "/api/v1/categories", undefined, false);
+			return request(args, "GET", "/api/v1/categories");
 		case "sites:truedr": {
 			const detailed = flag(args, "--detailed") ? "?detailed=true" : "";
 			return request(

@@ -29,7 +29,7 @@ calls/month**; **Pro** and **Agency** raise the limit. Install the CLI with
 `npm install -g verifieddr`, or run any command through `npx verifieddr …`.
 Requires Node.js ≥ 18.
 
-Every command except `categories:list` is metered against your monthly quota;
+Every command needs a key and is metered against your monthly quota;
 remaining quota and your tier are printed to stderr (and returned as
 `X-API-Quota-Remaining` / `X-API-Tier` headers). Pass `--key vdr_…` instead of
 the env var on any command.
@@ -43,7 +43,7 @@ Commands follow a `resource:action` shape.
 vdr authority:lookup stripe.com       # DR, TrueDR, trust score, evidence
 vdr discover:find --category ai --min-truedr 50 --traffic-validated --limit 10
 vdr badge:snippets stripe.com         # badge / embed snippets
-vdr categories:list                   # valid category values (no key needed)
+vdr categories:list                   # valid category values
 
 # Your own sites (owner-scoped)
 vdr sites:list                        # list your sites + metrics

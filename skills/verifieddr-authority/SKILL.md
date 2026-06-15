@@ -35,11 +35,11 @@ vdr sites:list
 vdr authority:lookup stripe.com
 ```
 
-`npm install -g verifieddr` (or `npx verifieddr <command>`). Every command except
-`categories:list` requires a `vdr_…` API key and spends one unit of the owner's
-monthly quota. The free tier includes 100 calls/month; Pro and Agency raise the
-limit. Remaining quota and tier are printed to stderr. All output is JSON on
-stdout with an `ok` boolean.
+`npm install -g verifieddr` (or `npx verifieddr <command>`). Every command
+requires a `vdr_…` API key and spends one unit of the owner's monthly quota. The
+free tier includes 100 calls/month; Pro and Agency raise the limit. Remaining
+quota and tier are printed to stderr. All output is JSON on stdout with an `ok`
+boolean.
 
 ## Command Choice
 
