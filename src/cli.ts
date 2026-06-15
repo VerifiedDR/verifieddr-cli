@@ -60,7 +60,7 @@ async function request(
 	const key = apiKey(args);
 	if (requireKey && !key) {
 		fail(
-			"Missing API key. Set VERIFIEDDR_API_KEY=vdr_… or pass --key vdr_…. Create one in your VerifiedDR dashboard (requires an active Pro or Agency plan).",
+			"Missing API key. Set VERIFIEDDR_API_KEY=vdr_… or pass --key vdr_…. Create one free in your VerifiedDR dashboard — the free tier includes 100 calls/month; Pro and Agency raise the limit.",
 			3,
 		);
 	}

@@ -107,7 +107,7 @@ vdr verify example.com                 # POST /api/v1/verify
 
 ## Errors
 
-- `401` missing/invalid key · `402` monthly quota exhausted · `403` no active
-  Pro/Agency plan · `404` unknown site (or not owned, for owner-scoped commands).
-- Quota headers `X-API-Quota-Limit` / `X-API-Quota-Remaining` are printed to
-  stderr by the CLI.
+- `401` missing/invalid key · `402` monthly quota exhausted (free tier = 100
+  calls/month) · `404` unknown site (or not owned, for owner-scoped commands).
+- Headers `X-API-Quota-Limit` / `X-API-Quota-Remaining` / `X-API-Tier` are
+  printed to stderr by the CLI.

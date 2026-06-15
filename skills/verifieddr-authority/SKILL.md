@@ -23,12 +23,13 @@ on authority/trust data — do **not** turn VerifiedDR into a generic SEO suite
 
 ```bash
 npm install -g verifieddr            # or use: npx verifieddr <command>
-export VERIFIEDDR_API_KEY=vdr_…      # from the VerifiedDR dashboard (Pro/Agency)
+export VERIFIEDDR_API_KEY=vdr_…      # free from the VerifiedDR dashboard
 ```
 
 Every command except `categories` requires a `vdr_…` API key and spends one unit
-of the owner's monthly quota. Remaining quota is printed to stderr. All output is
-JSON on stdout with an `ok` boolean.
+of the owner's monthly quota. The free tier includes 100 calls/month; Pro and
+Agency raise the limit. Remaining quota and tier are printed to stderr. All
+output is JSON on stdout with an `ok` boolean.
 
 ## Command Choice
 
@@ -67,10 +68,9 @@ vdr export <domain>                  # machine-readable export of YOUR site
 ## Safety
 
 - Treat all CLI output as JSON and preserve important fields in summaries.
-- If a command returns a `402`, the monthly quota is exhausted — tell the user to
-  upgrade or wait for the reset, do not retry in a loop.
-- A `403` means the key owner has no active Pro/Agency plan; `401` means a
-  missing or invalid key.
+- If a command returns a `402`, the monthly quota is exhausted — on the free tier
+  suggest upgrading to Pro/Agency or waiting for the monthly reset; do not retry
+  in a loop. `401` means a missing or invalid key.
 - If `find` returns no results, relax filters in this order: category, traffic
   validation, minimum TrueDR, verified-only.
 

@@ -20,9 +20,11 @@ Requires Node.js ≥ 18.
 
 ## Authenticate
 
-Every command except `categories` needs an API key. Create one in your
-VerifiedDR dashboard (requires an active **Pro** or **Agency** plan). Calls are
-metered against your plan's monthly quota; remaining quota is printed to stderr.
+Every command except `categories` needs an API key. Create one free in your
+VerifiedDR dashboard — the **free tier includes 100 calls/month**; **Pro** and
+**Agency** raise the limit. Calls are metered against your monthly quota;
+remaining quota and your tier are printed to stderr (and returned as
+`X-API-Quota-Remaining` / `X-API-Tier` headers).
 
 ```bash
 export VERIFIEDDR_API_KEY=vdr_xxxxxxxxxxxxxxxxxxxx
