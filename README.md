@@ -135,6 +135,33 @@ into your agent with:
 npx skills add thijssmudde/verifieddr-cli
 ```
 
+After installing the skill, you can ask for outcomes instead of memorizing
+commands:
+
+```text
+Run the VerifiedDR growth loop for example.com.
+Start by analyzing the current TrueDR gap, then identify the best next action,
+find relevant opportunities, and end with the exact command I should run next.
+```
+
+```text
+Act as my authority coach for example.com.
+Use VerifiedDR to diagnose why TrueDR is lower than DR, rank the top fixes by
+impact and effort, and turn the result into a 30/60/90-day plan.
+```
+
+```text
+Review example.com every week with VerifiedDR.
+Check whether TrueDR is improving, audit the weakest public backlink evidence,
+find the next partnership opportunity, and write a founder-ready progress update.
+```
+
+```text
+Find one partner opportunity for example.com and draft the outreach.
+Use VerifiedDR opportunities, only contact a listed Pro/Agency opportunity if I
+approve the target, and keep the email focused on a practical partnership.
+```
+
 ## License
 
 MIT
