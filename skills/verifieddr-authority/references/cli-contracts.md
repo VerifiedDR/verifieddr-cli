@@ -13,6 +13,7 @@ vdr analyze example.com
 vdr diagnose example.com
 vdr actions example.com
 vdr opportunities example.com
+vdr opportunities example.com --contact partner-slug
 vdr audit backlinks example.com
 vdr content-plan example.com
 vdr fix example.com --goal +10
@@ -32,6 +33,12 @@ partnership candidates. Free-tier responses redact actual site names/domains and
 show only candidate metrics; Pro and Agency responses may show the actual
 candidate names/domains. This can spend two quota calls: one lookup and one
 opportunities request.
+
+`opportunities --contact <slug-or-domain>` sends mail to the listed candidate
+through VerifiedDR's partnership mail system, using the same source ownership
+check, target opt-out handling, Pro/Agency contact quota, request logging, and
+sender confirmation as the dashboard UI. Optional `--subject` and `--message`
+override the generated outreach draft.
 
 ## authority:lookup (public, any approved site)
 

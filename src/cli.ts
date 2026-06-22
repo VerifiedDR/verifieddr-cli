@@ -52,12 +52,15 @@ function apiKey(args: string[]): string | undefined {
 const VALUE_FLAGS = new Set([
 	"--base",
 	"--category",
+	"--contact",
 	"--description",
 	"--goal",
 	"--key",
 	"--limit",
+	"--message",
 	"--min-dr",
 	"--min-truedr",
+	"--subject",
 	"--title",
 	"--type",
 	"--xhandle",
@@ -189,6 +192,7 @@ Coach commands:
   vdr diagnose <domain>                  Why TrueDR is lower than DR
   vdr actions <domain>                   Ranked actions by impact/effort/confidence
   vdr opportunities <domain>             Directories, partner, backlink ideas
+  vdr opportunities <domain> --contact <slug> Send mail to a listed opportunity
   vdr audit backlinks <domain>           Backlink risk review
   vdr content-plan <domain>              Authority-supporting page plan
   vdr fix <domain> [--goal +10]          30/60/90-day TrueDR growth plan
@@ -218,6 +222,7 @@ discover:find filters:
 
 opportunities filters:
   --type <all|directories|partners|backlinks>  --category <slug>  --min-truedr <n>
+  --contact <slug|domain>  --subject <text>  --message <text>
 
 Global flags: --key vdr_…   --base <url>`;
 
@@ -252,6 +257,7 @@ const ALIASES: Record<string, string> = {
 
 type Lookup = {
 	domain?: string | null;
+	slug?: string | null;
 	title?: string | null;
 	authority?: {
 		dr?: number | null;
@@ -562,11 +568,56 @@ async function partnershipCandidates(
 	}
 }
 
+async function contactPartnershipOpportunity(
+	lookup: Lookup,
+	args: string[],
+): Promise<void> {
+	const target = option(args, "--contact");
+	if (!target) fail("--contact requires a listed opportunity slug or domain.", 2);
+	const domain = lookup.domain || commandDomainArg(args);
+	const body: Json = {
+		opportunitiesFor: domain,
+		target,
+		trafficValidated: true,
+		limit: 10,
+		minTrueDr: Number(option(args, "--min-truedr") || "20"),
+	};
+	const category = option(args, "--category");
+	if (category) body.category = category;
+	const subject = option(args, "--subject");
+	if (subject) body.subject = subject;
+	const message = option(args, "--message");
+	if (message) body.message = message;
+
+	const result = await requestData(args, "POST", "/api/v1/find", body);
+	const contact = result.contact as
+		| {
+				sent?: boolean;
+				to?: Lookup;
+				subject?: string;
+				quota?: { used?: number; limit?: number | null; plan?: string };
+		  }
+		| undefined;
+	const to = contact?.to;
+	const label = to?.title || to?.domain || target;
+	const quota = contact?.quota;
+	printLines([
+		`Sent partnership email to ${label}.`,
+		contact?.subject ? `Subject: ${contact.subject}` : null,
+		quota
+			? `Partnership contacts: ${quota.used ?? "?"}/${quota.limit ?? "unlimited"} used (${quota.plan ?? "plan"})`
+			: null,
+	]);
+}
+
 async function coachOpportunities(
 	lookup: Lookup,
 	args: string[],
 	tier: ApiTier | null,
 ): Promise<void> {
+	if (option(args, "--contact")) {
+		return contactPartnershipOpportunity(lookup, args);
+	}
 	const type = option(args, "--type") || "all";
 	const domain = lookup.domain || domainArg(args);
 	const trust = num(lookup.authority?.trustScore);
@@ -611,7 +662,10 @@ async function coachOpportunities(
 				: "Potential partnerships (names hidden on Free):"
 			: null,
 		...candidates.map((site, index) =>
-			`${index + 1}. ${candidateLabel(site, index, showNames)}`,
+			showNames
+				? `${index + 1}. ${candidateLabel(site, index, showNames)}
+   Contact: vdr opportunities ${domain} --contact ${site.slug || site.domain || ""}`
+				: `${index + 1}. ${candidateLabel(site, index, showNames)}`,
 		),
 		candidates.length > 0 && !showNames
 			? "Upgrade to Pro or Agency to see actual partner names."

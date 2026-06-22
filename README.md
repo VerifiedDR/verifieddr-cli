@@ -46,6 +46,7 @@ vdr analyze example.com              # score, main issue, top 3 actions
 vdr diagnose example.com             # why TrueDR is lower than DR
 vdr actions example.com              # ranked by impact, effort, confidence
 vdr opportunities example.com        # directories, partners, backlink ideas
+vdr opportunities example.com --contact partner-slug  # send mail to a listed opportunity
 vdr audit backlinks example.com      # backlink risk review
 vdr content-plan example.com         # authority-supporting page plan
 vdr fix example.com --goal +10       # 30/60/90-day growth plan
@@ -59,6 +60,17 @@ vdr next example.com                 # single best next action
 redacted candidate rows with authority metrics; Pro and Agency users see the
 actual site names/domains. It uses the lookup and opportunities APIs, so it can
 spend two quota calls when partner candidates are requested.
+
+Pro and Agency users can contact a listed partner without seeing the owner's
+email address:
+
+```bash
+vdr opportunities example.com --contact partner-slug
+vdr opportunities example.com --contact partner-slug --message "Custom outreach copy..."
+```
+
+The email is sent through VerifiedDR's partnership mail system, using the same
+ownership, opt-out, quota, and confirmation flow as the dashboard UI.
 
 The API commands follow a `resource:action` shape:
 

@@ -57,6 +57,7 @@ vdr analyze <domain>                  # score, main issue, top 3 actions
 vdr diagnose <domain>                 # why TrueDR is lower than DR
 vdr actions <domain>                  # ranked by impact/effort/confidence
 vdr opportunities <domain>            # directories, partners, backlink ideas
+vdr opportunities <domain> --contact <slug> # send mail to a listed opportunity
 vdr audit backlinks <domain>          # backlink risk review
 vdr content-plan <domain>             # authority-supporting page plan
 vdr fix <domain> --goal +10           # 30/60/90-day growth plan
@@ -68,8 +69,11 @@ vdr next <domain>                     # single best next action
 
 `opportunities` can surface potential partnership candidates. Free output
 redacts the actual candidate names/domains; Pro and Agency output may include
-the real site names/domains. Partner candidates require an additional
-opportunities lookup, so this command can spend two quota calls.
+the real site names/domains. Pro and Agency users can contact a listed partner
+with `vdr opportunities <domain> --contact <slug-or-domain>`, which sends through
+VerifiedDR's partnership mail system without exposing the target owner's email.
+Partner candidates require an additional opportunities lookup, so this command
+can spend two quota calls.
 
 Use API commands when the user needs raw data, scripting, or integrations:
 
@@ -93,7 +97,8 @@ vdr sites:export <domain>            # machine-readable export of YOUR site
   plan.
 - `opportunities` when the user needs directories, backlink ideas, or partner
   targets. Do not invent hidden candidate names for Free output; if names are
-  redacted, explain that Pro/Agency reveals them.
+  redacted, explain that Pro/Agency reveals them. Use `--contact <slug-or-domain>`
+  when a Pro/Agency user wants to email a listed opportunity through VerifiedDR.
 - `authority:lookup` when the user asks what VerifiedDR knows about a domain or
   needs JSON. Returns DR, TrueDR, trust score, confidence, traffic validation,
   latest backlink totals, and badge links. Works for any approved site.
