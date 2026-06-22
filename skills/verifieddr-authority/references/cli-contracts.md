@@ -27,6 +27,12 @@ TrueDR impact, and the exact command to run next. `next` is the shortest
 recommendation surface: one action, why it matters, heuristic impact, and the
 command to execute.
 
+`opportunities` also calls the server-side opportunities mode to list potential
+partnership candidates. Free-tier responses redact actual site names/domains and
+show only candidate metrics; Pro and Agency responses may show the actual
+candidate names/domains. This can spend two quota calls: one lookup and one
+opportunities request.
+
 ## authority:lookup (public, any approved site)
 
 ```bash

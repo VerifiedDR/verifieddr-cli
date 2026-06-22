@@ -66,6 +66,11 @@ vdr boost <domain>                    # recommended authority campaign
 vdr next <domain>                     # single best next action
 ```
 
+`opportunities` can surface potential partnership candidates. Free output
+redacts the actual candidate names/domains; Pro and Agency output may include
+the real site names/domains. Partner candidates require an additional
+opportunities lookup, so this command can spend two quota calls.
+
 Use API commands when the user needs raw data, scripting, or integrations:
 
 ```bash
@@ -86,6 +91,9 @@ vdr sites:export <domain>            # machine-readable export of YOUR site
   especially in plain English for a client, founder, or stakeholder.
 - `actions` / `fix` / `boost` when the user asks for prioritization or a growth
   plan.
+- `opportunities` when the user needs directories, backlink ideas, or partner
+  targets. Do not invent hidden candidate names for Free output; if names are
+  redacted, explain that Pro/Agency reveals them.
 - `authority:lookup` when the user asks what VerifiedDR knows about a domain or
   needs JSON. Returns DR, TrueDR, trust score, confidence, traffic validation,
   latest backlink totals, and badge links. Works for any approved site.

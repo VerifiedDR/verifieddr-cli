@@ -55,6 +55,11 @@ vdr boost example.com                # recommended authority campaign
 vdr next example.com                 # single best next action
 ```
 
+`vdr opportunities` includes potential partnership candidates. Free users see
+redacted candidate rows with authority metrics; Pro and Agency users see the
+actual site names/domains. It uses the lookup and opportunities APIs, so it can
+spend two quota calls when partner candidates are requested.
+
 The API commands follow a `resource:action` shape:
 
 ```bash

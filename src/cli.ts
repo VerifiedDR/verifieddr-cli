@@ -13,6 +13,11 @@
 const DEFAULT_BASE = "https://verifieddr.com";
 
 type Json = Record<string, unknown>;
+type ApiTier = "free" | "pro" | "agency" | string;
+type ApiResult = {
+	data: Json;
+	tier: ApiTier | null;
+};
 
 function out(value: unknown): void {
 	process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
@@ -103,6 +108,18 @@ async function requestData(
 	body?: Json,
 	requireKey = true,
 ): Promise<Json> {
+	return (await requestResult(args, method, path, body, requireKey)).data;
+}
+
+async function requestResult(
+	args: string[],
+	method: "GET" | "POST",
+	path: string,
+	body?: Json,
+	requireKey = true,
+	failOnError = true,
+	quietQuota = false,
+): Promise<ApiResult> {
 	const key = apiKey(args);
 	if (requireKey && !key) {
 		fail(
@@ -123,17 +140,17 @@ async function requestData(
 			signal: AbortSignal.timeout(20000),
 		});
 	} catch (error) {
-		fail(
-			`Request failed: ${error instanceof Error ? error.message : String(error)}`,
-			4,
-		);
+		const message = `Request failed: ${error instanceof Error ? error.message : String(error)}`;
+		if (!failOnError) throw new Error(message);
+		fail(message, 4);
 	}
 
 	const remaining = response.headers.get("X-API-Quota-Remaining");
 	const limit = response.headers.get("X-API-Quota-Limit");
-	if (remaining && limit) {
+	if (remaining && limit && !quietQuota) {
 		process.stderr.write(`quota: ${remaining}/${limit} remaining\n`);
 	}
+	const tier = response.headers.get("X-API-Tier")?.toLowerCase() ?? null;
 
 	const text = await response.text();
 	let data: unknown;
@@ -148,9 +165,10 @@ async function requestData(
 			(data as Json)?.error != null
 				? String((data as Json).error)
 				: `HTTP ${response.status}`;
+		if (!failOnError) throw new Error(message);
 		fail(message, response.status === 402 ? 5 : 6);
 	}
-	return { ok: true, ...(data as Json) };
+	return { data: { ok: true, ...(data as Json) }, tier };
 }
 
 function encode(value: string): string {
@@ -197,6 +215,9 @@ Your own sites (owner-scoped):
 discover:find filters:
   --category <slug>  --min-truedr <n>  --min-dr <n>
   --traffic-validated  --include-unverified  --limit <n> (max 50)
+
+opportunities filters:
+  --type <all|directories|partners|backlinks>  --category <slug>  --min-truedr <n>
 
 Global flags: --key vdr_…   --base <url>`;
 
@@ -268,6 +289,11 @@ type Lookup = {
 	} | null;
 };
 
+type LookupContext = {
+	lookup: Lookup;
+	tier: ApiTier | null;
+};
+
 type CoachAction = {
 	title: string;
 	detail: string;
@@ -278,17 +304,17 @@ type CoachAction = {
 	run: string;
 };
 
-async function lookupData(args: string[]): Promise<Lookup> {
-	const data = await requestData(
+async function lookupContext(args: string[]): Promise<LookupContext> {
+	const result = await requestResult(
 		args,
 		"GET",
 		`/api/v1/lookup/${encode(commandDomainArg(args))}`,
 	);
-	const lookup = data.lookup;
+	const lookup = result.data.lookup;
 	if (!lookup || typeof lookup !== "object") {
 		fail("Lookup response did not include authority data.", 6);
 	}
-	return lookup as Lookup;
+	return { lookup: lookup as Lookup, tier: result.tier };
 }
 
 function num(value: unknown): number | null {
@@ -301,6 +327,10 @@ function signed(value: number): string {
 
 function score(value: number | null): string {
 	return value == null ? "unknown" : String(Math.round(value));
+}
+
+function canShowPartnerNames(tier: ApiTier | null): boolean {
+	return tier === "pro" || tier === "agency";
 }
 
 function gapOf(lookup: Lookup): number | null {
@@ -479,12 +509,74 @@ function coachActionList(lookup: Lookup): void {
 	});
 }
 
-function coachOpportunities(lookup: Lookup, args: string[]): void {
+function candidateLabel(
+	site: Lookup,
+	index: number,
+	showNames: boolean,
+): string {
+	const trueDr = score(num(site.authority?.trueDr));
+	const dr = score(num(site.authority?.dr));
+	const traffic = num(site.evidence?.traffic);
+	const metric = `TrueDR ${trueDr}, DR ${dr}${
+		traffic == null ? "" : `, traffic ${traffic}`
+	}`;
+	if (!showNames) return `Potential partner ${index + 1}: ${metric}`;
+	const name = site.title || site.domain || `Potential partner ${index + 1}`;
+	const domain = site.domain && site.domain !== name ? ` (${site.domain})` : "";
+	return `${name}${domain}: ${metric}`;
+}
+
+async function partnershipCandidates(
+	lookup: Lookup,
+	args: string[],
+): Promise<Lookup[]> {
+	const q = new URLSearchParams();
+	q.set("opportunitiesFor", lookup.domain || commandDomainArg(args));
+	q.set("trafficValidated", "true");
+	q.set("limit", "5");
+	const minTrueDr = option(args, "--min-truedr") || "20";
+	q.set("minTrueDr", minTrueDr);
+	const category = option(args, "--category");
+	if (category) q.set("category", category);
+	try {
+		const result = await requestResult(
+			args,
+			"GET",
+			`/api/v1/find?${q.toString()}`,
+			undefined,
+			true,
+			false,
+			true,
+		);
+		const sites =
+			(result.data.opportunities as { candidates?: unknown[] } | undefined)
+				?.candidates ?? [];
+		return sites
+			.filter((site): site is Lookup => Boolean(site && typeof site === "object"))
+			.slice(0, 5);
+	} catch {
+		process.stderr.write(
+			"partnership candidates unavailable; showing base opportunities\n",
+		);
+		return [];
+	}
+}
+
+async function coachOpportunities(
+	lookup: Lookup,
+	args: string[],
+	tier: ApiTier | null,
+): Promise<void> {
 	const type = option(args, "--type") || "all";
 	const domain = lookup.domain || domainArg(args);
 	const trust = num(lookup.authority?.trustScore);
 	const referringDomains = num(lookup.evidence?.referringDomains);
 	const topBacklinks = lookup.evidence?.topBacklinks ?? [];
+	const showNames = canShowPartnerNames(tier);
+	const candidates =
+		type === "all" || type === "partners"
+			? await partnershipCandidates(lookup, args)
+			: [];
 	const opportunities = [
 		type === "all" || type === "directories"
 			? `Relevant directories: ${
@@ -495,7 +587,7 @@ function coachOpportunities(lookup: Lookup, args: string[]): void {
 			: null,
 		type === "all" || type === "partners"
 			? `Partner links: ask customers, integrations, communities, and portfolio pages for contextual mentions${
-					topBacklinks.length > 0
+					topBacklinks.length > 0 && showNames
 						? ` similar to ${topBacklinks[0]?.sourceDomain || "the strongest current referring domains"}.`
 						: "."
 				}`
@@ -512,6 +604,18 @@ function coachOpportunities(lookup: Lookup, args: string[]): void {
 		`Opportunities for ${domain}:`,
 		"",
 		...opportunities.map((line, index) => `${index + 1}. ${line}`),
+		candidates.length > 0 ? "" : null,
+		candidates.length > 0
+			? showNames
+				? "Potential partnerships:"
+				: "Potential partnerships (names hidden on Free):"
+			: null,
+		...candidates.map((site, index) =>
+			`${index + 1}. ${candidateLabel(site, index, showNames)}`,
+		),
+		candidates.length > 0 && !showNames
+			? "Upgrade to Pro or Agency to see actual partner names."
+			: null,
 		"",
 		"Next:",
 		`Run: vdr actions ${domain}`,
@@ -668,7 +772,8 @@ async function coach(command: string, args: string[]): Promise<void> {
 			fail("Usage: vdr audit backlinks <domain>", 2);
 		}
 	}
-	const lookup = await lookupData(args);
+	const context = await lookupContext(args);
+	const { lookup, tier } = context;
 	switch (command) {
 		case "coach:analyze":
 			return coachAnalyze(lookup);
@@ -677,7 +782,7 @@ async function coach(command: string, args: string[]): Promise<void> {
 		case "coach:actions":
 			return coachActionList(lookup);
 		case "coach:opportunities":
-			return coachOpportunities(lookup, args);
+			return coachOpportunities(lookup, args, tier);
 		case "coach:audit":
 			return coachAuditBacklinks(lookup);
 		case "coach:content-plan":
