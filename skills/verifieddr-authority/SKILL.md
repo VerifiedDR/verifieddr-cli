@@ -36,8 +36,14 @@ export VERIFIEDDR_API_KEY=vdr_your_key
 # Get a score, diagnosis, and next actions
 vdr analyze verifieddr.com
 
-# Get the single best next action
+# Get the best next partner/action
 vdr next verifieddr.com
+
+# Surface verified partners worth contacting
+vdr opportunities verifieddr.com
+
+# Render the backlink map in the terminal
+vdr map verifieddr.com
 ```
 
 Every command requires a `vdr_…` API key and spends one unit of the owner's
@@ -56,30 +62,36 @@ explanation:
 vdr analyze <domain>                  # score, main issue, top 3 actions
 vdr diagnose <domain>                 # why TrueDR is lower than DR
 vdr actions <domain>                  # ranked by impact/effort/confidence
-vdr opportunities <domain>            # directories, partners, backlink ideas
-vdr opportunities <domain> --contact <slug> # send mail to a listed opportunity
+vdr opportunities <domain>            # verified partners, directories, backlink ideas
+vdr opportunities <domain> --contact <slug> # send drafted mail to a listed partner
 vdr audit backlinks <domain>          # backlink risk review
 vdr content-plan <domain>             # authority-supporting page plan
 vdr fix <domain> --goal +10           # 30/60/90-day growth plan
 vdr track <domain>                    # whether TrueDR is moving
 vdr explain <domain>                  # client/founder-ready explanation
 vdr boost <domain>                    # recommended authority campaign
-vdr next <domain>                     # single best next action
+vdr next <domain>                     # best next partner/action
 ```
 
-`opportunities` can surface potential partnership candidates. Free output
-redacts the actual candidate names/domains; Pro and Agency output may include
-the real site names/domains. Pro and Agency users can contact a listed partner
-with `vdr opportunities <domain> --contact <slug-or-domain>`, which sends through
-VerifiedDR's partnership mail system without exposing the target owner's email.
-Partner candidates require an additional opportunities lookup, so this command
-can spend two quota calls.
+The coach loop is partner-first: `next` prefers one concrete verified partner
+action when that is the fastest useful authority move. `opportunities` can
+surface potential partnership candidates, the outreach angle, and the exact
+command to approve before sending. Free output redacts candidate names/domains
+and shows only authority metrics, while Pro and Agency output includes the real
+site names/domains. Pro and Agency users can contact a listed partner with `vdr
+opportunities <domain> --contact <slug-or-domain>`, which sends drafted mail
+through VerifiedDR's partnership mail system without exposing the target owner's
+email. Partner candidates require an additional opportunities lookup, so this
+command can spend two quota calls.
 
 Use API commands when the user needs raw data, scripting, or integrations:
 
 ```bash
 vdr authority:lookup <domain>        # authority for ANY approved site
+vdr map <domain>                     # terminal backlink map for any approved site
+vdr map <domain> --json              # raw DR Map data
 vdr discover:find --category ai --min-truedr 50 --traffic-validated --limit 10
+vdr discover:find --opportunities-for example.com --limit 10
 vdr badge:snippets <domain>          # badge / embed snippets
 vdr sites:list                       # list YOUR sites
 vdr sites:monitor [<domain>] [--daily]   # watch YOUR sites for changes
@@ -94,14 +106,16 @@ skill should support:
 
 ```text
 Run the VerifiedDR growth loop for example.com.
-Start by analyzing the current TrueDR gap, then identify the best next action,
-find relevant opportunities, and end with the exact command I should run next.
+Start by analyzing the current TrueDR gap, then choose the highest-leverage
+partner opportunity, draft the outreach angle, and end with the exact command I
+should approve next.
 ```
 
 ```text
 Act as my authority coach for example.com.
 Use VerifiedDR to diagnose why TrueDR is lower than DR, rank the top fixes by
-impact and effort, and turn the result into a 30/60/90-day plan.
+impact and effort, and make verified partner outreach the default next action
+when it is the fastest path.
 ```
 
 ```text
@@ -120,7 +134,8 @@ approve the target, and keep the email focused on a practical partnership.
   current score, main issue, top actions, heuristic impact, and exact next
   command.
 - `next` when the user wants the fastest useful answer: one action, why it
-  matters, heuristic impact, and the command to run.
+  matters, heuristic impact, and the command to run. Expect partner outreach to
+  be the default when VerifiedDR can surface a reasonable match.
 - `diagnose` / `explain` when the user needs a reason TrueDR is lower than DR,
   especially in plain English for a client, founder, or stakeholder.
 - `actions` / `fix` / `boost` when the user asks for prioritization or a growth
@@ -128,14 +143,21 @@ approve the target, and keep the email focused on a practical partnership.
 - `opportunities` when the user needs directories, backlink ideas, or partner
   targets. Do not invent hidden candidate names for Free output; if names are
   redacted, explain that Pro/Agency reveals them. Use `--contact <slug-or-domain>`
-  when a Pro/Agency user wants to email a listed opportunity through VerifiedDR.
+  only after the user approves the listed target; it sends mail through
+  VerifiedDR.
 - `authority:lookup` when the user asks what VerifiedDR knows about a domain or
   needs JSON. Returns DR, TrueDR, trust score, confidence, traffic validation,
   latest backlink totals, and badge links. Works for any approved site.
+- `map` when the user wants to inspect a site's backlink map in the terminal.
+  It works for any approved site, supports `--limit <n>` and `--json`, and uses
+  cached backlink rows only. If no cached map exists, tell the user to open the
+  site's DR Map or wait for the next authority refresh; do not present it as a
+  fresh crawler.
 - `discover:find` for partner, sponsorship, integration, guest-post, or agency
   prospecting. Filter by `--category`, `--min-truedr`, `--min-dr`,
-  `--traffic-validated`, `--include-unverified`, `--limit` (max 50). Ranked by
-  TrueDR then DR.
+  `--traffic-validated`, `--include-unverified`, `--limit` (max 50). Add
+  `--opportunities-for <domain>` when the user needs site-specific partner
+  matches. Ranked by TrueDR then DR for broad discovery.
 - `badge:snippets` only for badge/share/embed snippets.
 - `sites:list` to list the key owner's own sites with current metrics.
 - `sites:monitor` to watch changes, summarize deltas, or check trust alerts.

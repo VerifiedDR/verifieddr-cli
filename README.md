@@ -1,9 +1,10 @@
 # VerifiedDR CLI
 
 A tiny, dependency-free CLI for the [VerifiedDR](https://verifieddr.com) API.
-Use it to understand why a domain's **TrueDR** is weak, what to do next, and
-whether the work is improving authority over time. The lower-level API commands
-still return clean JSON for scripts, CI, dashboards, and AI agents.
+Use it to understand why a domain's **TrueDR** is weak, find the next verified
+partner to contact, and check whether the work is improving authority over time.
+The lower-level API commands still return clean JSON for scripts, CI,
+dashboards, and AI agents.
 
 It is a thin HTTP client: it talks only to `https://verifieddr.com/api/v1` with
 your own API key. It never touches a database or any admin credential.
@@ -23,8 +24,14 @@ export VERIFIEDDR_API_KEY=vdr_your_key
 # Get a score, diagnosis, and next actions
 vdr analyze verifieddr.com
 
-# Get the single best next action
+# Get the best next partner/action
 vdr next verifieddr.com
+
+# Surface verified partners worth contacting
+vdr opportunities verifieddr.com
+
+# Render the backlink map in your terminal
+vdr map verifieddr.com
 ```
 
 Get a free key in your VerifiedDR dashboard — **Free** includes 10 calls/day,
@@ -45,21 +52,24 @@ The coach commands are the default product surface:
 vdr analyze example.com              # score, main issue, top 3 actions
 vdr diagnose example.com             # why TrueDR is lower than DR
 vdr actions example.com              # ranked by impact, effort, confidence
-vdr opportunities example.com        # directories, partners, backlink ideas
-vdr opportunities example.com --contact partner-slug  # send mail to a listed opportunity
+vdr opportunities example.com        # verified partners, directories, backlink ideas
+vdr opportunities example.com --contact partner-slug  # send drafted mail to a listed partner
 vdr audit backlinks example.com      # backlink risk review
 vdr content-plan example.com         # authority-supporting page plan
 vdr fix example.com --goal +10       # 30/60/90-day growth plan
 vdr track example.com                # whether TrueDR is moving
 vdr explain example.com              # client/founder-ready explanation
 vdr boost example.com                # recommended authority campaign
-vdr next example.com                 # single best next action
+vdr next example.com                 # best next partner/action
 ```
 
-`vdr opportunities` includes potential partnership candidates. Free users see
-redacted candidate rows with authority metrics; Pro and Agency users see the
-actual site names/domains. It uses the lookup and opportunities APIs, so it can
-spend two quota calls when partner candidates are requested.
+The coach loop is partner-first: `vdr next` prefers one concrete verified
+partner action when that is the fastest useful authority move. `vdr
+opportunities` shows potential partnership candidates, the suggested outreach
+angle, and the exact command to approve before sending. Free users see redacted
+candidate rows with authority metrics; Pro and Agency users see the actual site
+names/domains. Partner matching uses the lookup and opportunities APIs, so it
+can spend two quota calls when partner candidates are requested.
 
 Pro and Agency users can contact a listed partner without seeing the owner's
 email address:
@@ -77,7 +87,10 @@ The API commands follow a `resource:action` shape:
 ```bash
 # Public discovery — works for ANY approved site
 vdr authority:lookup stripe.com       # DR, TrueDR, trust score, evidence
+vdr map stripe.com                    # terminal backlink map
+vdr map stripe.com --json             # raw DR Map data
 vdr discover:find --category ai --min-truedr 50 --traffic-validated --limit 10
+vdr discover:find --opportunities-for example.com --limit 10
 vdr badge:snippets stripe.com         # badge / embed snippets
 vdr categories:list                   # valid category values
 
@@ -98,9 +111,11 @@ vdr sites:verify example.com          # re-check the badge embed
 ### What's public vs. private
 
 - **Public fields, any site** (`authority:lookup`, `discover:find`,
-  `badge:snippets`): DR, TrueDR, trust score, confidence, traffic validation,
-  public backlink totals, badge links. Never owner identity, billing state, or
-  the per-signal trust breakdown.
+  `map`, `badge:snippets`): DR, TrueDR, trust score, confidence, traffic
+  validation, public backlink totals/map data, badge links. Never owner
+  identity, billing state, or the per-signal trust breakdown. `vdr map` is
+  cache-only: it never triggers a paid backlink fetch; if no cached map exists
+  yet, try again after the site's DR Map has been opened or refreshed.
 - **Owner-scoped** (`sites:*`): only your own claimed sites.
   `sites:truedr --detailed` returns the full signal breakdown for sites you own.
 
@@ -140,14 +155,16 @@ commands:
 
 ```text
 Run the VerifiedDR growth loop for example.com.
-Start by analyzing the current TrueDR gap, then identify the best next action,
-find relevant opportunities, and end with the exact command I should run next.
+Start by analyzing the current TrueDR gap, then choose the highest-leverage
+partner opportunity, draft the outreach angle, and end with the exact command I
+should approve next.
 ```
 
 ```text
 Act as my authority coach for example.com.
 Use VerifiedDR to diagnose why TrueDR is lower than DR, rank the top fixes by
-impact and effort, and turn the result into a 30/60/90-day plan.
+impact and effort, and make verified partner outreach the default next action
+when it is the fastest path.
 ```
 
 ```text

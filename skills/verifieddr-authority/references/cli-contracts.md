@@ -14,6 +14,7 @@ vdr diagnose example.com
 vdr actions example.com
 vdr opportunities example.com
 vdr opportunities example.com --contact partner-slug
+vdr map example.com
 vdr audit backlinks example.com
 vdr content-plan example.com
 vdr fix example.com --goal +10
@@ -26,13 +27,14 @@ vdr next example.com
 `analyze` prints current TrueDR/DR/gap, the main issue, top actions, heuristic
 TrueDR impact, and the exact command to run next. `next` is the shortest
 recommendation surface: one action, why it matters, heuristic impact, and the
-command to execute.
+command to execute. It prefers one concrete verified partner action when
+VerifiedDR can surface a reasonable match.
 
 `opportunities` also calls the server-side opportunities mode to list potential
-partnership candidates. Free-tier responses redact actual site names/domains and
-show only candidate metrics; Pro and Agency responses may show the actual
-candidate names/domains. This can spend two quota calls: one lookup and one
-opportunities request.
+partnership candidates, outreach angles, and contact commands. Free-tier
+responses redact actual site names/domains and show only candidate metrics; Pro
+and Agency responses may show the actual candidate names/domains. This can spend
+two quota calls: one lookup and one opportunities request.
 
 `opportunities --contact <slug-or-domain>` sends mail to the listed candidate
 through VerifiedDR's partnership mail system, using the same source ownership
@@ -92,17 +94,53 @@ vdr authority:lookup stripe.com
 - The per-signal trust **breakdown** is intentionally NOT returned here. It is
   available only via `truedr --detailed` for sites you own.
 
+## map (public, any approved site)
+
+```bash
+vdr map stripe.com
+vdr map stripe.com --limit 40
+vdr map stripe.com --json
+# GET /api/v1/map/stripe.com
+```
+
+Default output is a terminal backlink map, sorted by importance and capped by
+`--limit` (default 24, max 60). `--json` prints `{ ok: true, map }`, with
+terminal-safe referring-domain fields:
+
+```json
+{
+  "ok": true,
+  "map": {
+    "site": { "domain": "stripe.com", "dr": 92, "title": "Stripe", "verified": true },
+    "domains": [
+      { "domain": "example.edu", "dr": 82, "backlinks": 2, "linkType": "dofollow", "status": "live", "importance": 88, "spamScore": 0 }
+    ],
+    "totalDomains": 51000
+  }
+}
+```
+
+The endpoint is cache-only and never triggers a paid backlink fetch. If the site
+has no cached backlink rows yet, it returns `503` with a message asking the user
+to open the site's DR Map or wait for the next authority refresh.
+
 ## discover:find (public discovery)
 
 ```bash
 vdr discover:find --category ai --min-truedr 50 --traffic-validated --limit 10
 # GET /api/v1/find?category=ai&minTrueDr=50&trafficValidated=true&limit=10
+
+vdr discover:find --opportunities-for example.com --limit 10
+# GET /api/v1/find?opportunitiesFor=example.com&limit=10
 ```
 
 Returns `{ find: { filters, sites: [ <lookup payload>, … ] } }`, ranked by
 TrueDR then DR. Filters: `--category <slug>`, `--min-truedr <n>`, `--min-dr <n>`,
 `--traffic-validated`, `--include-unverified`, `--limit <n>` (max 50). Use for
 partner / sponsor / trusted-site discovery — not keyword or backlink analysis.
+With `--opportunities-for`, the endpoint returns `{ opportunities: { domain,
+redacted, filters, candidates } }` using the site-specific TrueDR Connect match
+ranking.
 
 ## badge:snippets (public)
 

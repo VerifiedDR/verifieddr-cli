@@ -60,6 +60,7 @@ const VALUE_FLAGS = new Set([
 	"--message",
 	"--min-dr",
 	"--min-truedr",
+	"--opportunities-for",
 	"--subject",
 	"--title",
 	"--type",
@@ -185,24 +186,25 @@ Quickstart:
   npm install -g verifieddr                    # install the CLI
   export VERIFIEDDR_API_KEY=vdr_your_key       # free key in your dashboard
   vdr analyze verifieddr.com                   # score + next actions
-  vdr next verifieddr.com                      # single best next action
+  vdr next verifieddr.com                      # best next partner/action
 
 Coach commands:
   vdr analyze <domain>                   Score, main issue, top actions
   vdr diagnose <domain>                  Why TrueDR is lower than DR
   vdr actions <domain>                   Ranked actions by impact/effort/confidence
-  vdr opportunities <domain>             Directories, partner, backlink ideas
-  vdr opportunities <domain> --contact <slug> Send mail to a listed opportunity
+  vdr opportunities <domain>             Verified partners, directories, backlink ideas
+  vdr opportunities <domain> --contact <slug> Send drafted mail to a listed partner
   vdr audit backlinks <domain>           Backlink risk review
   vdr content-plan <domain>              Authority-supporting page plan
   vdr fix <domain> [--goal +10]          30/60/90-day TrueDR growth plan
   vdr track <domain>                     TrueDR trend signals
   vdr explain <domain>                   Client/founder-ready explanation
   vdr boost <domain>                     Recommended campaign
-  vdr next <domain>                      Single best next action
+  vdr next <domain>                      Best next partner/action
 
 API commands (any approved site):
   vdr authority:lookup <domain>          DR, TrueDR, trust score, evidence
+  vdr map <domain>                       Render the backlink map in your terminal
   vdr discover:find [filters]            Discover trusted sites, ranked by TrueDR
   vdr badge:snippets <domain>            Badge / embed snippets
   vdr categories:list                    Valid category values
@@ -219,9 +221,10 @@ Your own sites (owner-scoped):
 discover:find filters:
   --category <slug>  --min-truedr <n>  --min-dr <n>
   --traffic-validated  --include-unverified  --limit <n> (max 50)
+  --opportunities-for <domain>           Site-specific partner matches
 
 opportunities filters:
-  --type <all|directories|partners|backlinks>  --category <slug>  --min-truedr <n>
+  --type <all|partners|directories|backlinks>  --category <slug>  --min-truedr <n>
   --contact <slug|domain>  --subject <text>  --message <text>
 
 Global flags: --key vdr_…   --base <url>`;
@@ -243,6 +246,7 @@ const ALIASES: Record<string, string> = {
 	boost: "coach:boost",
 	next: "coach:next",
 	lookup: "authority:lookup",
+	map: "authority:map",
 	find: "discover:find",
 	sites: "sites:list",
 	site: "sites:get",
@@ -300,6 +304,36 @@ type Lookup = {
 		page?: string;
 		badge?: string;
 	} | null;
+};
+
+type OpportunityCandidate = Lookup & {
+	opportunity?: {
+		type?: string;
+		reason?: string;
+		fitReasons?: string[];
+	};
+};
+
+type ReferringDomain = {
+	id?: string;
+	domain?: string;
+	dr?: number;
+	backlinks?: number;
+	linkType?: "dofollow" | "nofollow" | string;
+	status?: "live" | "lost" | string;
+	importance?: number;
+	spamScore?: number;
+};
+
+type DrMap = {
+	site?: {
+		domain?: string;
+		dr?: number;
+		title?: string;
+		verified?: boolean;
+	};
+	domains?: ReferringDomain[];
+	totalDomains?: number;
 };
 
 type LookupContext = {
@@ -393,6 +427,17 @@ function coachActions(lookup: Lookup): CoachAction[] {
 	const trust = num(lookup.authority?.trustScore);
 	const confidence = lookup.authority?.confidence;
 
+	actions.push({
+		title: "Contact one verified partner",
+		detail:
+			"Use VerifiedDR's partner matching to find a reachable site with category, TrueDR, DR, and traffic fit, then approve one focused outreach email.",
+		impact: "High, roughly +3 to +8 TrueDR when the partnership earns a relevant mention or collaboration",
+		impactScore: 9,
+		effort: "low",
+		confidence: "high",
+		run: `vdr opportunities ${domain}`,
+	});
+
 	if (referringDomains == null || referringDomains < 50) {
 		actions.push({
 			title: "Add 5 relevant directory links",
@@ -462,6 +507,117 @@ function coachActions(lookup: Lookup): CoachAction[] {
 
 function printLines(lines: Array<string | null | undefined>): void {
 	process.stdout.write(`${lines.filter((line) => line != null).join("\n")}\n`);
+}
+
+function mapLimit(args: string[]): number {
+	const raw = Number(option(args, "--limit") || "24");
+	if (!Number.isFinite(raw)) return 24;
+	return Math.max(1, Math.min(60, Math.round(raw)));
+}
+
+function truncate(value: string, max: number): string {
+	if (max <= 0) return "";
+	if (max <= 3) return value.slice(0, max);
+	if (value.length <= max) return value;
+	return `${value.slice(0, max - 3)}...`;
+}
+
+function pad(value: string, width: number): string {
+	return value.length >= width
+		? value
+		: `${value}${" ".repeat(width - value.length)}`;
+}
+
+function backlinkLabel(domain: ReferringDomain, maxWidth: number): string {
+	const name = domain.domain || "unknown";
+	const dr = typeof domain.dr === "number" ? Math.round(domain.dr) : "?";
+	const backlinks =
+		typeof domain.backlinks === "number" ? Math.max(0, domain.backlinks) : 0;
+	const status =
+		domain.status === "lost"
+			? "lost"
+			: typeof domain.spamScore === "number" && domain.spamScore >= 50
+				? `spam ${domain.spamScore}`
+				: domain.linkType === "nofollow"
+					? "nofollow"
+					: "follow";
+	const suffix = `(DR ${dr}, ${status}, ${backlinks} link${backlinks === 1 ? "" : "s"})`;
+	return `${truncate(name, maxWidth - suffix.length - 1)} ${suffix}`;
+}
+
+function renderBacklinkMap(map: DrMap, args: string[]): string {
+	const allDomains = Array.isArray(map.domains) ? map.domains : [];
+	const limit = Math.min(mapLimit(args), allDomains.length);
+	const domains = allDomains.slice(0, limit);
+	const width = Math.max(72, Math.min(140, process.stdout.columns || 100));
+	const columnWidth = Math.floor((width - 15) / 2);
+	const siteDomain = map.site?.domain || "site";
+	const siteDr = typeof map.site?.dr === "number" ? Math.round(map.site.dr) : "?";
+	const site = `${siteDomain} DR ${siteDr}`;
+	const left: ReferringDomain[] = [];
+	const right: ReferringDomain[] = [];
+	domains.forEach((domain, index) => {
+		if (index % 2 === 0) left.push(domain);
+		else right.push(domain);
+	});
+	const rows = Math.max(left.length, right.length);
+	const total = map.totalDomains ?? allDomains.length;
+	const lines = [
+		`Backlink Map - ${site}`,
+		[
+			`${total} referring domain${total === 1 ? "" : "s"}`,
+			`showing ${domains.length}`,
+			`${domains.filter((d) => d.linkType !== "nofollow" && d.status !== "lost").length} live follow`,
+			`${domains.filter((d) => d.status === "lost").length} lost`,
+			`${domains.filter((d) => typeof d.spamScore === "number" && d.spamScore >= 50).length} spam-flagged`,
+		].join(" | "),
+		"",
+	];
+
+	if (domains.length === 0) {
+		lines.push("No referring domains found in the cached backlink map.");
+		return lines.join("\n");
+	}
+
+	for (let index = 0; index < rows; index += 1) {
+		const leftLabel = left[index] ? backlinkLabel(left[index], columnWidth) : "";
+		const rightLabel = right[index]
+			? backlinkLabel(right[index], columnWidth)
+			: "";
+		const connector =
+			index === 0
+				? `--- [ ${site} ] ---`
+				: index % 2 === 0
+					? "  \\       /  "
+					: "  /       \\  ";
+		lines.push(`${pad(leftLabel, columnWidth)} ${connector} ${rightLabel}`);
+	}
+
+	if (total > domains.length) {
+		lines.push(
+			"",
+			`Showing top ${domains.length} by importance; ${total - domains.length} more cached referring domains hidden. Use --limit ${Math.min(total, 60)} to show more.`,
+		);
+	}
+
+	return lines.join("\n");
+}
+
+async function authorityMap(args: string[]): Promise<void> {
+	const result = await requestData(
+		args,
+		"GET",
+		`/api/v1/map/${encode(domainArg(args))}`,
+	);
+	if (flag(args, "--json")) {
+		out(result);
+		return;
+	}
+	const map = result.map as DrMap | undefined;
+	if (!map || typeof map !== "object") {
+		fail("Map response did not include backlink map data.", 6);
+	}
+	process.stdout.write(`${renderBacklinkMap(map, args)}\n`);
 }
 
 function printScoreBlock(lookup: Lookup): void {
@@ -542,7 +698,7 @@ function candidateLabel(
 async function partnershipCandidates(
 	lookup: Lookup,
 	args: string[],
-): Promise<Lookup[]> {
+): Promise<OpportunityCandidate[]> {
 	const q = new URLSearchParams();
 	q.set("opportunitiesFor", lookup.domain || commandDomainArg(args));
 	q.set("trafficValidated", "true");
@@ -565,7 +721,9 @@ async function partnershipCandidates(
 			(result.data.opportunities as { candidates?: unknown[] } | undefined)
 				?.candidates ?? [];
 		return sites
-			.filter((site): site is Lookup => Boolean(site && typeof site === "object"))
+			.filter((site): site is OpportunityCandidate =>
+				Boolean(site && typeof site === "object"),
+			)
 			.slice(0, 5);
 	} catch {
 		process.stderr.write(
@@ -670,8 +828,9 @@ async function coachOpportunities(
 			: null,
 		...candidates.map((site, index) =>
 			showNames
-				? `${index + 1}. ${candidateLabel(site, index, showNames)}
-   Contact: vdr opportunities ${domain} --contact ${site.slug || site.domain || ""}`
+				? `${index + 1}. ${candidateLabel(site, index, showNames)}${site.opportunity?.reason ? `
+   Angle: ${site.opportunity.type || "Partnership"} - ${site.opportunity.reason}` : ""}
+   Send drafted mail: vdr opportunities ${domain} --contact ${site.slug || site.domain || ""}`
 				: `${index + 1}. ${candidateLabel(site, index, showNames)}`,
 		),
 		candidates.length > 0 && !showNames
@@ -823,15 +982,37 @@ function coachContentPlan(lookup: Lookup): void {
 	]);
 }
 
-function coachNext(lookup: Lookup): void {
+async function coachNext(
+	lookup: Lookup,
+	args: string[],
+	tier: ApiTier | null,
+): Promise<void> {
 	const action = coachActions(lookup)[0];
+	const domain = lookup.domain || commandDomainArg(args);
+	const showNames = canShowPartnerNames(tier);
+	const partnerCandidates = action?.run.startsWith("vdr opportunities ")
+		? await partnershipCandidates(lookup, args)
+		: [];
+	const partner = partnerCandidates[0];
 	printLines([
-		`Best next action for ${lookup.domain || "domain"}:`,
+		`Best next action for ${domain}:`,
 		action.title,
 		"",
 		`Why: ${action.detail}`,
 		`Heuristic impact: ${action.impact}`,
 		`Run: ${action.run}`,
+		partner ? "" : null,
+		partner ? "Suggested partner:" : null,
+		partner ? candidateLabel(partner, 0, showNames) : null,
+		partner?.opportunity?.reason
+			? `Angle: ${partner.opportunity.type || "Partnership"} - ${partner.opportunity.reason}`
+			: null,
+		partner && showNames
+			? `Approve + send: vdr opportunities ${domain} --contact ${partner.slug || partner.domain || ""}`
+			: null,
+		partner && !showNames
+			? "Partner names are hidden on Free. Upgrade to Pro or Agency to approve and contact a listed partner."
+			: null,
 	]);
 }
 
@@ -866,7 +1047,7 @@ async function coach(command: string, args: string[]): Promise<void> {
 		case "coach:boost":
 			return coachBoost(lookup);
 		case "coach:next":
-			return coachNext(lookup);
+			return coachNext(lookup, args, tier);
 		default:
 			fail(`Unknown coach command: ${command}`, 2);
 	}
@@ -891,6 +1072,8 @@ async function main(): Promise<void> {
 			return coach(command, args);
 		case "authority:lookup":
 			return request(args, "GET", `/api/v1/lookup/${encode(domainArg(args))}`);
+		case "authority:map":
+			return authorityMap(args);
 		case "badge:snippets":
 			return request(
 				args,
@@ -921,6 +1104,8 @@ async function main(): Promise<void> {
 			if (minTrueDr) q.set("minTrueDr", minTrueDr);
 			const minDr = option(args, "--min-dr");
 			if (minDr) q.set("minDr", minDr);
+			const opportunitiesFor = option(args, "--opportunities-for");
+			if (opportunitiesFor) q.set("opportunitiesFor", opportunitiesFor);
 			if (flag(args, "--traffic-validated")) q.set("trafficValidated", "true");
 			if (flag(args, "--include-unverified")) q.set("includeUnverified", "true");
 			const limit = option(args, "--limit");

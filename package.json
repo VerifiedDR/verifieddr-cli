@@ -1,7 +1,7 @@
 {
 	"name": "verifieddr",
-	"version": "0.2.3",
-	"description": "CLI for the VerifiedDR API — look up DR, TrueDR, trust scores, discover trusted sites, and monitor authority changes.",
+	"version": "0.2.4",
+	"description": "CLI for the VerifiedDR API — diagnose TrueDR gaps, find verified partner opportunities, and monitor authority changes.",
 	"type": "module",
 	"bin": {
 		"vdr": "dist/cli.js",
