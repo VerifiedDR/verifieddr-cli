@@ -20,7 +20,7 @@ description: >-
 
 Use VerifiedDR as the authority and trust data layer through the public `vdr`
 CLI (a thin HTTP client for `https://verifieddr.com/api/v1`). Keep work focused
-on authority/trust data — do **not** turn VerifiedDR into a generic SEO suite
+on authority/trust data. Do **not** turn VerifiedDR into a generic SEO suite
 (no keyword research, crawler audits, or site-audit workflows).
 
 ## Quickstart
@@ -48,7 +48,7 @@ vdr opportunities verifieddr.com
 vdr map verifieddr.com
 ```
 
-Every command requires a `vdr_…` API key and spends one unit of the owner's
+Every command requires a `vdr_...` API key and spends one unit of the owner's
 plan quota. Free includes 10 calls/day, Pro includes 1,000 calls/month, and
 Agency includes 10,000 calls/month. Remaining quota and tier are printed to
 stderr. Coach commands print plain-English guidance; API commands print JSON on
@@ -110,26 +110,25 @@ skill should support:
 
 ```text
 Run the VerifiedDR growth loop for example.com.
-Start by analyzing the current TrueDR gap, then run `vdr sites:truedr
-example.com --detailed` to inspect owner-scoped recommendations. Only if spam
-links or spamRatio are a top action, generate disavow candidates with `vdr
-sites:disavow example.com --min-spam 50`, summarize exactly which domains need
-manual approval before upload, then choose the highest-leverage partner
-opportunity, draft the outreach angle, and end with the exact command I should
-approve next. If no spam links are found, skip disavow and say so.
+Analyze the TrueDR gap, then run `vdr sites:truedr example.com --detailed` to
+check the owner-scoped recommendations. If spam links are found, generate
+disavow candidates with `vdr sites:disavow example.com --min-spam 50` and list
+the domains I need to approve before upload. If no spam links are found, skip
+disavow and say so. Then choose the best partner opportunity, draft the outreach
+angle, and end with the exact command I should approve next.
 ```
 
 ```text
 Act as my authority coach for example.com.
 Use VerifiedDR to diagnose why TrueDR is lower than DR, rank the top fixes by
-impact and effort, and make verified partner outreach the default next action
-when it is the fastest path.
+impact and effort, and make verified partner outreach the next action when it is
+the fastest path.
 ```
 
 ```text
 Review example.com every week with VerifiedDR.
-Check whether TrueDR is improving, audit the weakest public backlink evidence,
-find the next partnership opportunity, and write a founder-ready progress update.
+Check whether TrueDR is improving, review the weakest public backlink evidence,
+find the next partnership opportunity, and write a clear progress update.
 ```
 
 ```text
@@ -171,7 +170,7 @@ copy.
 - `badge:snippets` only for badge/share/embed snippets.
 - `sites:list` to list the key owner's own sites with current metrics.
 - `sites:monitor` to watch changes, summarize deltas, or check trust alerts.
-  Owner scoped — only the API key owner's own claimed sites.
+  Owner-scoped: only the API key owner's own claimed sites.
 - `sites:export` when output feeds another script, CI job, dashboard, or
   integration.
 - `sites:disavow <domain>` when the owner wants a Google disavow-format
@@ -179,18 +178,18 @@ copy.
   supports `--min-spam <n>` (default 50), `--include-lost`, `--limit <n>`, and
   `--json`, and never submits anything to Google. Tell users to review the file
   manually before uploading it in Google Search Console.
-- `sites:truedr <domain> --detailed` for the full per-signal trust breakdown —
+- `sites:truedr <domain> --detailed` for the full per-signal trust breakdown,
   only available for sites the key owner owns.
 - `sites:submit` / `sites:verify` to list a new site or re-check its badge embed.
 
-The pre-`0.2` verbs (`lookup`, `find`, `sites`, `monitor`, …) still work as
+The pre-`0.2` verbs (`lookup`, `find`, `sites`, `monitor`, ...) still work as
 hidden aliases, but prefer the `resource:action` forms above.
 
 ## Public vs. owner-scoped
 
 - **Public fields, any approved site:** `authority:lookup`, `discover:find`,
   `badge:snippets`. Never expose owner identity, billing state, or the
-  per-signal trust breakdown — that data is not returned by these commands, so
+  per-signal trust breakdown. That data is not returned by these commands, so
   do not claim to have it.
 - **Owner-scoped (key owner's own sites only):** `sites:list`, `sites:get`,
   `sites:truedr`, `sites:export`, `sites:disavow`, `sites:monitor`,
@@ -202,7 +201,7 @@ hidden aliases, but prefer the `resource:action` forms above.
 
 - Treat coach command output as guidance and API command output as JSON. Preserve
   important fields in summaries.
-- If a command returns a `402`, the plan quota is exhausted — on Free suggest
+- If a command returns a `402`, the plan quota is exhausted. On Free, suggest
   upgrading to Pro/Agency or waiting for the daily reset; on Pro/Agency suggest
   waiting for the monthly reset or upgrading; do not retry in a loop. `401`
   means a missing or invalid key.

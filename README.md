@@ -34,14 +34,14 @@ vdr opportunities verifieddr.com
 vdr map verifieddr.com
 ```
 
-Get a free key in your VerifiedDR dashboard — **Free** includes 10 calls/day,
+Get a free key in your VerifiedDR dashboard. **Free** includes 10 calls/day,
 **Pro** includes 1,000 calls/month, and **Agency** includes 10,000 calls/month.
-Requires Node.js ≥ 18. If global installs are unavailable, run any command
-through `npx verifieddr …`.
+Requires Node.js 18 or newer. If global installs are unavailable, run any
+command through `npx verifieddr ...`.
 
 Every command needs a key and is metered against your plan quota; remaining
-quota and your tier are printed to stderr (and returned as
-`X-API-Quota-Remaining` / `X-API-Tier` headers). Pass `--key vdr_…` instead of
+quota and your tier are printed to stderr, and returned as
+`X-API-Quota-Remaining` / `X-API-Tier` headers). Pass `--key vdr_...` instead of
 the env var on any command.
 
 ## Commands
@@ -87,7 +87,7 @@ ownership, opt-out, quota, and confirmation flow as the dashboard UI.
 The API commands follow a `resource:action` shape:
 
 ```bash
-# Public discovery — works for ANY approved site
+# Public discovery, works for ANY approved site
 vdr authority:lookup stripe.com       # DR, TrueDR, trust score, evidence
 vdr map stripe.com                    # terminal backlink map
 vdr map stripe.com --json             # raw DR Map data
@@ -108,7 +108,7 @@ vdr sites:submit https://example.com --title "Example" --category saas
 vdr sites:verify example.com          # re-check the badge embed
 ```
 
-> The pre-`0.2` verbs (`lookup`, `find`, `sites`, `monitor`, …) still work as
+> The pre-`0.2` verbs (`lookup`, `find`, `sites`, `monitor`, ...) still work as
 > hidden aliases, so existing scripts keep running.
 
 ### What's public vs. private
@@ -159,43 +159,41 @@ npx skills add VerifiedDR/verifieddr-cli
 After installing the skill, ask for one of these outcomes instead of memorizing
 commands:
 
-1. **Growth Loop** — diagnose the TrueDR gap, check detailed actions, disavow
-   only if spam links are found, pick a partner, and end with the command to
-   approve.
-2. **Partner Outreach** — find one verified partner, preview the exact outreach
-   with `--dry-run`, then send only after approval.
-3. **Progress Report** — check TrueDR/DR movement, audit weak backlink evidence,
-   pick one next action, and write a founder or client-ready update.
-4. **Fix Weak Authority Signals** — inspect the owner-scoped signal breakdown,
-   choose the relevant fix, and avoid blanket cleanup when spam is not the
-   issue.
-5. **Monitor Metrics** — set a recurring authority check for DR, TrueDR, traffic
+1. **Growth Loop:** find the TrueDR gap, check the detailed actions, disavow
+   only when spam links are found, pick one partner move, and end with the
+   command to approve.
+2. **Partner Outreach:** find one verified partner, preview the outreach with
+   `--dry-run`, then send only after approval.
+3. **Progress Report:** check TrueDR and DR movement, review weak backlink
+   evidence, choose one next action, and write a founder or client-ready update.
+4. **Fix Weak Authority Signals:** inspect the owner-scoped signal breakdown,
+   choose the relevant fix, and skip cleanup when spam is not the issue.
+5. **Monitor Metrics:** set a recurring authority check for DR, TrueDR, traffic
    validation, backlink deltas, and trust alerts.
 
 Example prompts:
 
 ```text
 Run the VerifiedDR growth loop for example.com.
-Start by analyzing the current TrueDR gap, then run `vdr sites:truedr
-example.com --detailed` to inspect owner-scoped recommendations. Only if spam
-links or spamRatio are a top action, generate disavow candidates with `vdr
-sites:disavow example.com --min-spam 50`, summarize exactly which domains need
-manual approval before upload, then choose the highest-leverage partner
-opportunity, draft the outreach angle, and end with the exact command I should
-approve next. If no spam links are found, skip disavow and say so.
+Analyze the TrueDR gap, then run `vdr sites:truedr example.com --detailed` to
+check the owner-scoped recommendations. If spam links are found, generate
+disavow candidates with `vdr sites:disavow example.com --min-spam 50` and list
+the domains I need to approve before upload. If no spam links are found, skip
+disavow and say so. Then choose the best partner opportunity, draft the outreach
+angle, and end with the exact command I should approve next.
 ```
 
 ```text
 Act as my authority coach for example.com.
 Use VerifiedDR to diagnose why TrueDR is lower than DR, rank the top fixes by
-impact and effort, and make verified partner outreach the default next action
-when it is the fastest path.
+impact and effort, and make verified partner outreach the next action when it is
+the fastest path.
 ```
 
 ```text
 Review example.com every week with VerifiedDR.
-Check whether TrueDR is improving, audit the weakest public backlink evidence,
-find the next partnership opportunity, and write a founder-ready progress update.
+Check whether TrueDR is improving, review the weakest public backlink evidence,
+find the next partnership opportunity, and write a clear progress update.
 ```
 
 ```text

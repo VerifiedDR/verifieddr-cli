@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
 /**
- * VerifiedDR CLI — a thin, dependency-free HTTP client for the public
+ * VerifiedDR CLI: a thin, dependency-free HTTP client for the public
  * VerifiedDR API (https://verifieddr.com/api/v1). It never touches a database
  * or any admin credential; every call is authenticated with your own
- * `vdr_…` API key and metered against your plan's quota.
+ * `vdr_...` API key and metered against your plan's quota.
  *
- * Auth:  VERIFIEDDR_API_KEY=vdr_…   (or pass --key vdr_…)
+ * Auth:  VERIFIEDDR_API_KEY=vdr_...   (or pass --key vdr_...)
  * Base:  VERIFIEDDR_API_BASE=https://verifieddr.com   (override for testing)
  */
 
@@ -128,7 +128,7 @@ async function requestResult(
 	const key = apiKey(args);
 	if (requireKey && !key) {
 		fail(
-			"Missing API key. Set VERIFIEDDR_API_KEY=vdr_… or pass --key vdr_…. Create one free in your VerifiedDR dashboard — Free includes 10 calls/day; Pro includes 1,000 calls/month; Agency includes 10,000 calls/month.",
+			"Missing API key. Set VERIFIEDDR_API_KEY=vdr_... or pass --key vdr_.... Create one free in your VerifiedDR dashboard. Free includes 10 calls/day; Pro includes 1,000 calls/month; Agency includes 10,000 calls/month.",
 			3,
 		);
 	}
@@ -180,7 +180,7 @@ function encode(value: string): string {
 	return encodeURIComponent(value.trim().toLowerCase());
 }
 
-const USAGE = `VerifiedDR CLI — authority & trust data over the VerifiedDR API.
+const USAGE = `VerifiedDR CLI: authority and trust data over the VerifiedDR API.
 
 Quickstart:
   npx skills add VerifiedDR/verifieddr-cli   # install the agent skill
@@ -232,7 +232,7 @@ opportunities filters:
 disavow filters:
   --min-spam <n> (default 50)  --include-lost  --limit <n>  --json
 
-Global flags: --key vdr_…   --base <url>   --version`;
+Global flags: --key vdr_...   --base <url>   --version`;
 
 /**
  * Pre-colon verbs from v0.1.x, kept as hidden aliases so older scripts and

@@ -1,6 +1,6 @@
 # VerifiedDR CLI / API Contracts
 
-Base URL: `https://verifieddr.com/api/v1`. Auth: `Authorization: Bearer vdr_…`.
+Base URL: `https://verifieddr.com/api/v1`. Auth: `Authorization: Bearer vdr_...`.
 The CLI mirrors these endpoints one-to-one. JSON examples are abbreviated.
 
 ## Coach commands (plain text)
@@ -88,7 +88,7 @@ vdr authority:lookup stripe.com
 
 - `authority.dr`: third-party Domain Rating.
 - `authority.trueDr`: VerifiedDR's independent, trust-adjusted authority.
-- `authority.trustScore` / `confidence`: backlink trust score (0–100) and how
+- `authority.trustScore` / `confidence`: backlink trust score (0 to 100) and how
   much data backs it (`high` / `medium` / `low`).
 - `authority.trafficValidated`: whether real traffic evidence supports the link
   profile.
@@ -135,10 +135,10 @@ vdr discover:find --opportunities-for example.com --limit 10
 # GET /api/v1/find?opportunitiesFor=example.com&limit=10
 ```
 
-Returns `{ find: { filters, sites: [ <lookup payload>, … ] } }`, ranked by
+Returns `{ find: { filters, sites: [ <lookup payload>, ... ] } }`, ranked by
 TrueDR then DR. Filters: `--category <slug>`, `--min-truedr <n>`, `--min-dr <n>`,
 `--traffic-validated`, `--include-unverified`, `--limit <n>` (max 50). Use for
-partner / sponsor / trusted-site discovery — not keyword or backlink analysis.
+partner / sponsor / trusted-site discovery, not keyword or backlink analysis.
 With `--opportunities-for`, the endpoint returns `{ opportunities: { domain,
 redacted: false, filters, candidates } }` using the site-specific TrueDR Connect
 match ranking.
@@ -172,7 +172,7 @@ vdr sites:export example.com
 # GET /api/v1/export/example.com
 ```
 
-`{ export: { site, authority, snippets } }` — `site` is the compact metric row,
+`{ export: { site, authority, snippets } }`. `site` is the compact metric row,
 `authority` is the full public lookup payload, `snippets` are the badge embeds.
 
 ## sites:disavow (owner-scoped)
@@ -203,12 +203,12 @@ vdr sites:verify example.com            # POST /api/v1/verify
 ```
 
 `sites:truedr --detailed` includes the full per-signal `breakdown` for owned
-sites. The pre-`0.2` verbs (`sites`, `site`, `truedr`, …) still work as aliases.
+sites. The pre-`0.2` verbs (`sites`, `site`, `truedr`, ...) still work as aliases.
 
 ## Errors
 
-- `401` missing/invalid key · `402` quota exhausted (Free = 10 calls/day, Pro =
-  1,000 calls/month, Agency = 10,000 calls/month) · `404` unknown site (or not
+- `401` missing/invalid key; `402` quota exhausted (Free = 10 calls/day, Pro =
+  1,000 calls/month, Agency = 10,000 calls/month); `404` unknown site (or not
   owned, for owner-scoped commands).
 - Headers `X-API-Quota-Limit` / `X-API-Quota-Remaining` / `X-API-Tier` are
   printed to stderr by the CLI.
