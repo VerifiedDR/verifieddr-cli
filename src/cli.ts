@@ -58,6 +58,7 @@ const VALUE_FLAGS = new Set([
 	"--key",
 	"--limit",
 	"--message",
+	"--min-spam",
 	"--min-dr",
 	"--min-truedr",
 	"--opportunities-for",
@@ -214,6 +215,7 @@ Your own sites (owner-scoped):
   vdr sites:get <domain>                 One of your sites with DR/traffic trends
   vdr sites:truedr <domain> [--detailed] Your site's TrueDR (+ signal breakdown)
   vdr sites:export <domain>              Machine-readable export of your site
+  vdr sites:disavow <domain>             Google disavow candidates for spam links
   vdr sites:monitor [<domain>] [--daily] Watch changes + trust alerts
   vdr sites:submit <url> [--title --description --category --xhandle]
   vdr sites:verify <domain>              Re-check the badge embed
@@ -225,9 +227,12 @@ discover:find filters:
 
 opportunities filters:
   --type <all|partners|directories|backlinks>  --category <slug>  --min-truedr <n>
-  --contact <slug|domain>  --subject <text>  --message <text>
+  --contact <slug|domain>  --subject <text>  --message <text>  --dry-run
 
-Global flags: --key vdr_…   --base <url>`;
+disavow filters:
+  --min-spam <n> (default 50)  --include-lost  --limit <n>  --json
+
+Global flags: --key vdr_…   --base <url>   --version`;
 
 /**
  * Pre-colon verbs from v0.1.x, kept as hidden aliases so older scripts and
@@ -251,6 +256,7 @@ const ALIASES: Record<string, string> = {
 	sites: "sites:list",
 	site: "sites:get",
 	truedr: "sites:truedr",
+	disavow: "sites:disavow",
 	export: "sites:export",
 	monitor: "sites:monitor",
 	submit: "sites:submit",
@@ -376,8 +382,8 @@ function score(value: number | null): string {
 	return value == null ? "unknown" : String(Math.round(value));
 }
 
-function canShowPartnerNames(tier: ApiTier | null): boolean {
-	return tier === "pro" || tier === "agency";
+function canShowPartnerNames(): boolean {
+	return true;
 }
 
 function gapOf(lookup: Lookup): number | null {
@@ -620,6 +626,30 @@ async function authorityMap(args: string[]): Promise<void> {
 	process.stdout.write(`${renderBacklinkMap(map, args)}\n`);
 }
 
+async function sitesDisavow(args: string[]): Promise<void> {
+	const q = new URLSearchParams();
+	const minSpam = option(args, "--min-spam");
+	if (minSpam) q.set("minSpam", minSpam);
+	const limit = option(args, "--limit");
+	if (limit) q.set("limit", limit);
+	if (flag(args, "--include-lost")) q.set("includeLost", "true");
+	const qs = q.toString();
+	const result = await requestData(
+		args,
+		"GET",
+		`/api/v1/disavow/${encode(domainArg(args))}${qs ? `?${qs}` : ""}`,
+	);
+	if (flag(args, "--json")) {
+		out(result);
+		return;
+	}
+	const file = (result.disavow as { file?: unknown } | undefined)?.file;
+	if (typeof file !== "string") {
+		fail("Disavow response did not include a file.", 6);
+	}
+	process.stdout.write(`${file}\n`);
+}
+
 function printScoreBlock(lookup: Lookup): void {
 	const trueDr = num(lookup.authority?.trueDr);
 	const dr = num(lookup.authority?.dr);
@@ -754,6 +784,21 @@ async function contactPartnershipOpportunity(
 	const message = option(args, "--message");
 	if (message) body.message = message;
 
+	if (flag(args, "--dry-run")) {
+		out({
+			ok: true,
+			dryRun: true,
+			wouldSend: {
+				method: "POST",
+				path: "/api/v1/find",
+				body,
+			},
+			note:
+				"Nothing was sent. Run the same command without --dry-run to send the partnership request.",
+		});
+		return;
+	}
+
 	const result = await requestData(args, "POST", "/api/v1/find", body);
 	const contact = result.contact as
 		| {
@@ -778,7 +823,6 @@ async function contactPartnershipOpportunity(
 async function coachOpportunities(
 	lookup: Lookup,
 	args: string[],
-	tier: ApiTier | null,
 ): Promise<void> {
 	if (option(args, "--contact")) {
 		return contactPartnershipOpportunity(lookup, args);
@@ -788,7 +832,7 @@ async function coachOpportunities(
 	const trust = num(lookup.authority?.trustScore);
 	const referringDomains = num(lookup.evidence?.referringDomains);
 	const topBacklinks = lookup.evidence?.topBacklinks ?? [];
-	const showNames = canShowPartnerNames(tier);
+	const showNames = canShowPartnerNames();
 	const candidates =
 		type === "all" || type === "partners"
 			? await partnershipCandidates(lookup, args)
@@ -822,9 +866,7 @@ async function coachOpportunities(
 		...opportunities.map((line, index) => `${index + 1}. ${line}`),
 		candidates.length > 0 ? "" : null,
 		candidates.length > 0
-			? showNames
-				? "Potential partnerships:"
-				: "Potential partnerships (names hidden on Free):"
+			? "Potential partnerships:"
 			: null,
 		...candidates.map((site, index) =>
 			showNames
@@ -833,8 +875,8 @@ async function coachOpportunities(
    Send drafted mail: vdr opportunities ${domain} --contact ${site.slug || site.domain || ""}`
 				: `${index + 1}. ${candidateLabel(site, index, showNames)}`,
 		),
-		candidates.length > 0 && !showNames
-			? "Upgrade to Pro or Agency to see actual partner names."
+		candidates.length > 0
+			? "Partner names are shown on every plan. Sending a contact request is a paid action."
 			: null,
 		"",
 		"Next:",
@@ -985,11 +1027,10 @@ function coachContentPlan(lookup: Lookup): void {
 async function coachNext(
 	lookup: Lookup,
 	args: string[],
-	tier: ApiTier | null,
 ): Promise<void> {
 	const action = coachActions(lookup)[0];
 	const domain = lookup.domain || commandDomainArg(args);
-	const showNames = canShowPartnerNames(tier);
+	const showNames = canShowPartnerNames();
 	const partnerCandidates = action?.run.startsWith("vdr opportunities ")
 		? await partnershipCandidates(lookup, args)
 		: [];
@@ -1011,7 +1052,7 @@ async function coachNext(
 			? `Approve + send: vdr opportunities ${domain} --contact ${partner.slug || partner.domain || ""}`
 			: null,
 		partner && !showNames
-			? "Partner names are hidden on Free. Upgrade to Pro or Agency to approve and contact a listed partner."
+			? "Partner names are shown on every plan. Sending a contact request is a paid action."
 			: null,
 	]);
 }
@@ -1024,7 +1065,7 @@ async function coach(command: string, args: string[]): Promise<void> {
 		}
 	}
 	const context = await lookupContext(args);
-	const { lookup, tier } = context;
+	const { lookup } = context;
 	switch (command) {
 		case "coach:analyze":
 			return coachAnalyze(lookup);
@@ -1033,7 +1074,7 @@ async function coach(command: string, args: string[]): Promise<void> {
 		case "coach:actions":
 			return coachActionList(lookup);
 		case "coach:opportunities":
-			return coachOpportunities(lookup, args, tier);
+			return coachOpportunities(lookup, args);
 		case "coach:audit":
 			return coachAuditBacklinks(lookup);
 		case "coach:content-plan":
@@ -1047,7 +1088,7 @@ async function coach(command: string, args: string[]): Promise<void> {
 		case "coach:boost":
 			return coachBoost(lookup);
 		case "coach:next":
-			return coachNext(lookup, args, tier);
+			return coachNext(lookup, args);
 		default:
 			fail(`Unknown coach command: ${command}`, 2);
 	}
@@ -1082,6 +1123,8 @@ async function main(): Promise<void> {
 			);
 		case "sites:export":
 			return request(args, "GET", `/api/v1/export/${encode(domainArg(args))}`);
+		case "sites:disavow":
+			return sitesDisavow(args);
 		case "sites:get":
 			return request(args, "GET", `/api/v1/sites/${encode(domainArg(args))}`);
 		case "sites:list":
@@ -1144,6 +1187,19 @@ async function main(): Promise<void> {
 		case "-h":
 			process.stdout.write(`${USAGE}\n`);
 			return;
+		case "--version":
+		case "-v":
+		case "version": {
+			const { readFileSync } = await import("node:fs");
+			const { fileURLToPath } = await import("node:url");
+			const { dirname, join } = await import("node:path");
+			const here = dirname(fileURLToPath(import.meta.url));
+			const pkg = JSON.parse(
+				readFileSync(join(here, "../package.json"), "utf8"),
+			) as { version?: string };
+			process.stdout.write(`${pkg.version ?? "unknown"}\n`);
+			return;
+		}
 		default:
 			process.stderr.write(`${USAGE}\n`);
 			fail(`Unknown command: ${rawCommand}`, 2);

@@ -54,6 +54,7 @@ vdr diagnose example.com             # why TrueDR is lower than DR
 vdr actions example.com              # ranked by impact, effort, confidence
 vdr opportunities example.com        # verified partners, directories, backlink ideas
 vdr opportunities example.com --contact partner-slug  # send drafted mail to a listed partner
+vdr opportunities example.com --contact partner-slug --dry-run  # preview contact payload
 vdr audit backlinks example.com      # backlink risk review
 vdr content-plan example.com         # authority-supporting page plan
 vdr fix example.com --goal +10       # 30/60/90-day growth plan
@@ -66,16 +67,17 @@ vdr next example.com                 # best next partner/action
 The coach loop is partner-first: `vdr next` prefers one concrete verified
 partner action when that is the fastest useful authority move. `vdr
 opportunities` shows potential partnership candidates, the suggested outreach
-angle, and the exact command to approve before sending. Free users see redacted
-candidate rows with authority metrics; Pro and Agency users see the actual site
-names/domains. Partner matching uses the lookup and opportunities APIs, so it
-can spend two quota calls when partner candidates are requested.
+angle, and the exact command to approve before sending. Partner names are shown
+on every plan; sending the contact request is the paid action. Partner matching
+uses the lookup and opportunities APIs, so it can spend two quota calls when
+partner candidates are requested.
 
 Pro and Agency users can contact a listed partner without seeing the owner's
-email address:
+email address. Use `--dry-run` first when you want to confirm the custom subject
+or message before sending:
 
 ```bash
-vdr opportunities example.com --contact partner-slug
+vdr opportunities example.com --contact partner-slug --dry-run
 vdr opportunities example.com --contact partner-slug --message "Custom outreach copy..."
 ```
 
@@ -99,6 +101,7 @@ vdr sites:list                        # list your sites + metrics
 vdr sites:get example.com             # one site with DR/traffic trends
 vdr sites:truedr example.com --detailed   # TrueDR + full signal breakdown
 vdr sites:export example.com          # machine-readable export
+vdr sites:disavow example.com         # Google disavow candidates for spam links
 vdr sites:monitor --daily             # watch all your sites for changes
 vdr sites:monitor example.com         # watch one site
 vdr sites:submit https://example.com --title "Example" --category saas
@@ -118,6 +121,9 @@ vdr sites:verify example.com          # re-check the badge embed
   yet, try again after the site's DR Map has been opened or refreshed.
 - **Owner-scoped** (`sites:*`): only your own claimed sites.
   `sites:truedr --detailed` returns the full signal breakdown for sites you own.
+  `sites:disavow` prints a Google disavow-format candidate file from cached
+  spam-link evidence; use `--min-spam`, `--include-lost`, `--limit`, or `--json`
+  to tune/review it. It never submits anything to Google.
 
 ## Output
 
@@ -155,9 +161,13 @@ commands:
 
 ```text
 Run the VerifiedDR growth loop for example.com.
-Start by analyzing the current TrueDR gap, then choose the highest-leverage
-partner opportunity, draft the outreach angle, and end with the exact command I
-should approve next.
+Start by analyzing the current TrueDR gap, then run `vdr sites:truedr
+example.com --detailed` to inspect owner-scoped recommendations. Only if spam
+links or spamRatio are a top action, generate disavow candidates with `vdr
+sites:disavow example.com --min-spam 50`, summarize exactly which domains need
+manual approval before upload, then choose the highest-leverage partner
+opportunity, draft the outreach angle, and end with the exact command I should
+approve next. If no spam links are found, skip disavow and say so.
 ```
 
 ```text
@@ -175,8 +185,9 @@ find the next partnership opportunity, and write a founder-ready progress update
 
 ```text
 Find one partner opportunity for example.com and draft the outreach.
-Use VerifiedDR opportunities, only contact a listed Pro/Agency opportunity if I
-approve the target, and keep the email focused on a practical partnership.
+Use VerifiedDR opportunities, run the contact command with --dry-run so I can
+approve the exact subject/message, then send only after I approve the target and
+copy.
 ```
 
 ## License

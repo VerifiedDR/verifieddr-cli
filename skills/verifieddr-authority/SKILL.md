@@ -7,11 +7,13 @@ description: >-
   authority gaps to clients/founders, looking up DR/TrueDR/trust evidence,
   discovering trusted sites by category or TrueDR for partner/sponsor/integration
   prospecting, grabbing badge or embed snippets, monitoring authority changes,
-  traffic validation, backlink deltas, and trust/spam alerts on sites you own;
-  exporting VerifiedDR data for scripts, CI, dashboards, or SaaS integrations.
+  traffic validation, backlink deltas, trust/spam alerts on sites you own, and
+  Google disavow candidate files for spammy links; exporting VerifiedDR data for
+  scripts, CI, dashboards, or SaaS integrations.
   Prefer this skill for requests mentioning VerifiedDR analyze, diagnose,
   actions, opportunities, next, lookup, find, monitor, export, snippets, TrueDR,
-  trust score, traffic validation, or agent-friendly VerifiedDR workflows.
+  trust score, traffic validation, disavow, spam links, or agent-friendly
+  VerifiedDR workflows.
 ---
 
 # VerifiedDR Authority
@@ -64,6 +66,7 @@ vdr diagnose <domain>                 # why TrueDR is lower than DR
 vdr actions <domain>                  # ranked by impact/effort/confidence
 vdr opportunities <domain>            # verified partners, directories, backlink ideas
 vdr opportunities <domain> --contact <slug> # send drafted mail to a listed partner
+vdr opportunities <domain> --contact <slug> --dry-run # preview contact payload
 vdr audit backlinks <domain>          # backlink risk review
 vdr content-plan <domain>             # authority-supporting page plan
 vdr fix <domain> --goal +10           # 30/60/90-day growth plan
@@ -76,13 +79,13 @@ vdr next <domain>                     # best next partner/action
 The coach loop is partner-first: `next` prefers one concrete verified partner
 action when that is the fastest useful authority move. `opportunities` can
 surface potential partnership candidates, the outreach angle, and the exact
-command to approve before sending. Free output redacts candidate names/domains
-and shows only authority metrics, while Pro and Agency output includes the real
-site names/domains. Pro and Agency users can contact a listed partner with `vdr
-opportunities <domain> --contact <slug-or-domain>`, which sends drafted mail
-through VerifiedDR's partnership mail system without exposing the target owner's
-email. Partner candidates require an additional opportunities lookup, so this
-command can spend two quota calls.
+command to approve before sending. Partner names are shown on every plan;
+sending the contact request is the paid action. Pro and Agency users can contact
+a listed partner with `vdr opportunities <domain> --contact <slug-or-domain>`,
+which sends drafted mail through VerifiedDR's partnership mail system without
+exposing the target owner's email. Add `--subject`, `--message`, and `--dry-run`
+to preview the exact payload before sending. Partner candidates require an
+additional opportunities lookup, so this command can spend two quota calls.
 
 Use API commands when the user needs raw data, scripting, or integrations:
 
@@ -96,6 +99,7 @@ vdr badge:snippets <domain>          # badge / embed snippets
 vdr sites:list                       # list YOUR sites
 vdr sites:monitor [<domain>] [--daily]   # watch YOUR sites for changes
 vdr sites:export <domain>            # machine-readable export of YOUR site
+vdr sites:disavow <domain>           # Google disavow candidates for spam links
 ```
 
 ## Growth Loop Prompts
@@ -106,9 +110,13 @@ skill should support:
 
 ```text
 Run the VerifiedDR growth loop for example.com.
-Start by analyzing the current TrueDR gap, then choose the highest-leverage
-partner opportunity, draft the outreach angle, and end with the exact command I
-should approve next.
+Start by analyzing the current TrueDR gap, then run `vdr sites:truedr
+example.com --detailed` to inspect owner-scoped recommendations. Only if spam
+links or spamRatio are a top action, generate disavow candidates with `vdr
+sites:disavow example.com --min-spam 50`, summarize exactly which domains need
+manual approval before upload, then choose the highest-leverage partner
+opportunity, draft the outreach angle, and end with the exact command I should
+approve next. If no spam links are found, skip disavow and say so.
 ```
 
 ```text
@@ -126,8 +134,9 @@ find the next partnership opportunity, and write a founder-ready progress update
 
 ```text
 Find one partner opportunity for example.com and draft the outreach.
-Use VerifiedDR opportunities, only contact a listed Pro/Agency opportunity if I
-approve the target, and keep the email focused on a practical partnership.
+Use VerifiedDR opportunities, run the contact command with --dry-run so I can
+approve the exact subject/message, then send only after I approve the target and
+copy.
 ```
 
 - `analyze` first when the user asks what to do about a domain. It returns the
@@ -141,10 +150,11 @@ approve the target, and keep the email focused on a practical partnership.
 - `actions` / `fix` / `boost` when the user asks for prioritization or a growth
   plan.
 - `opportunities` when the user needs directories, backlink ideas, or partner
-  targets. Do not invent hidden candidate names for Free output; if names are
-  redacted, explain that Pro/Agency reveals them. Use `--contact <slug-or-domain>`
-  only after the user approves the listed target; it sends mail through
-  VerifiedDR.
+  targets. Partner names are shown on every plan; contacting them is the paid
+  action. Use `--contact <slug-or-domain> --dry-run` to show the exact payload
+  for approval, then remove `--dry-run` only after the user approves the listed
+  target and copy. Custom outreach must be passed with `--subject` and/or
+  `--message`; it sends mail through VerifiedDR.
 - `authority:lookup` when the user asks what VerifiedDR knows about a domain or
   needs JSON. Returns DR, TrueDR, trust score, confidence, traffic validation,
   latest backlink totals, and badge links. Works for any approved site.
@@ -164,6 +174,11 @@ approve the target, and keep the email focused on a practical partnership.
   Owner scoped — only the API key owner's own claimed sites.
 - `sites:export` when output feeds another script, CI job, dashboard, or
   integration.
+- `sites:disavow <domain>` when the owner wants a Google disavow-format
+  candidate file for spammy referring domains. It is cache-only, owner-scoped,
+  supports `--min-spam <n>` (default 50), `--include-lost`, `--limit <n>`, and
+  `--json`, and never submits anything to Google. Tell users to review the file
+  manually before uploading it in Google Search Console.
 - `sites:truedr <domain> --detailed` for the full per-signal trust breakdown —
   only available for sites the key owner owns.
 - `sites:submit` / `sites:verify` to list a new site or re-check its badge embed.
@@ -178,8 +193,9 @@ hidden aliases, but prefer the `resource:action` forms above.
   per-signal trust breakdown — that data is not returned by these commands, so
   do not claim to have it.
 - **Owner-scoped (key owner's own sites only):** `sites:list`, `sites:get`,
-  `sites:truedr`, `sites:export`, `sites:monitor`, `sites:submit`,
-  `sites:verify`. If the user asks to monitor or export a domain they do not
+  `sites:truedr`, `sites:export`, `sites:disavow`, `sites:monitor`,
+  `sites:submit`, `sites:verify`. If the user asks to monitor, export, or
+  disavow a domain they do not
   own, explain it returns 404 by design.
 
 ## Safety

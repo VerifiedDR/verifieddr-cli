@@ -14,6 +14,7 @@ vdr diagnose example.com
 vdr actions example.com
 vdr opportunities example.com
 vdr opportunities example.com --contact partner-slug
+vdr opportunities example.com --contact partner-slug --dry-run
 vdr map example.com
 vdr audit backlinks example.com
 vdr content-plan example.com
@@ -31,16 +32,16 @@ command to execute. It prefers one concrete verified partner action when
 VerifiedDR can surface a reasonable match.
 
 `opportunities` also calls the server-side opportunities mode to list potential
-partnership candidates, outreach angles, and contact commands. Free-tier
-responses redact actual site names/domains and show only candidate metrics; Pro
-and Agency responses may show the actual candidate names/domains. This can spend
-two quota calls: one lookup and one opportunities request.
+partnership candidates, outreach angles, and contact commands. Partner names are
+shown on every plan; sending the contact request is the paid action. This can
+spend two quota calls: one lookup and one opportunities request.
 
 `opportunities --contact <slug-or-domain>` sends mail to the listed candidate
 through VerifiedDR's partnership mail system, using the same source ownership
 check, target opt-out handling, Pro/Agency contact quota, request logging, and
 sender confirmation as the dashboard UI. Optional `--subject` and `--message`
-override the generated outreach draft.
+override the generated outreach draft. Add `--dry-run` to print the exact POST
+payload without sending.
 
 ## authority:lookup (public, any approved site)
 
@@ -139,8 +140,8 @@ TrueDR then DR. Filters: `--category <slug>`, `--min-truedr <n>`, `--min-dr <n>`
 `--traffic-validated`, `--include-unverified`, `--limit <n>` (max 50). Use for
 partner / sponsor / trusted-site discovery — not keyword or backlink analysis.
 With `--opportunities-for`, the endpoint returns `{ opportunities: { domain,
-redacted, filters, candidates } }` using the site-specific TrueDR Connect match
-ranking.
+redacted: false, filters, candidates } }` using the site-specific TrueDR Connect
+match ranking.
 
 ## badge:snippets (public)
 
@@ -174,12 +175,29 @@ vdr sites:export example.com
 `{ export: { site, authority, snippets } }` — `site` is the compact metric row,
 `authority` is the full public lookup payload, `snippets` are the badge embeds.
 
+## sites:disavow (owner-scoped)
+
+```bash
+vdr sites:disavow example.com
+vdr sites:disavow example.com --min-spam 60 --include-lost --limit 50
+vdr sites:disavow example.com --json
+# GET /api/v1/disavow/example.com?minSpam=60&includeLost=true&limit=50
+```
+
+Default output is a Google disavow-format text file with `domain:` directives
+for cached spam-link candidates. `--json` prints `{ disavow: { domain,
+generatedAt, minSpamScore, totalCandidates, candidates, file, note } }`.
+The endpoint is owner-scoped and cache-only: it never triggers a paid backlink
+fetch, never writes metrics, and never submits anything to Google. Users must
+review the generated file manually before uploading it to Google Search Console.
+
 ## sites:* (owner-scoped)
 
 ```bash
 vdr sites:list                          # GET /api/v1/sites
 vdr sites:get example.com               # GET /api/v1/sites/example.com
 vdr sites:truedr example.com --detailed # GET /api/v1/sites/example.com/truedr?detailed=true
+vdr sites:disavow example.com           # GET /api/v1/disavow/example.com
 vdr sites:submit https://example.com --title "Example" --category saas   # POST /api/v1/sites
 vdr sites:verify example.com            # POST /api/v1/verify
 ```
