@@ -187,10 +187,10 @@ vdr sites:disavow example.com --json
 # GET /api/v1/disavow/example.com?minSpam=60&includeLost=true&limit=50
 ```
 
-Default output is a Google disavow-format text file with `domain:` directives
-for cached spam-link candidates. `--json` prints `{ disavow: { domain,
-generatedAt, minSpamScore, totalCandidates, candidates, file, note } }`.
-The endpoint is owner-scoped and cache-only: it never triggers a paid backlink
+Default output is a Google disavow-format candidate text file with `domain:`
+directives for severe spam-link risk found in cached evidence. `--json` prints
+`{ disavow: { domain, generatedAt, minSpamScore, totalCandidates, candidates,
+file, note } }`. The endpoint is owner-scoped and cache-only: it never triggers a paid backlink
 fetch, never writes metrics, and never submits anything to Google. Users must
 review the generated file manually before uploading it to Google Search Console.
 

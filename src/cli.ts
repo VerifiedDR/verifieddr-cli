@@ -253,7 +253,7 @@ Your own sites (owner-scoped):
   vdr sites:get <domain>                 One of your sites with DR/traffic trends
   vdr sites:truedr <domain> [--detailed] Your site's TrueDR (+ signal breakdown)
   vdr sites:export <domain>              Machine-readable export of your site
-  vdr sites:disavow <domain>             Google disavow candidates for spam links
+  vdr sites:disavow <domain>             Google disavow candidates for severe spam risk
   vdr sites:monitor [<domain>] [--daily] Watch changes + trust alerts
   vdr sites:submit <url> [--title --description --category --xhandle]
   vdr sites:verify <domain>              Re-check the badge embed
@@ -893,7 +893,7 @@ async function coachOpportunities(
 				}`
 			: null,
 		type === "all" || type === "backlinks"
-			? `Backlink cleanup: ${
+			? `Backlink risk review: ${
 					trust != null && trust < 60
 						? "aggregate trust is weak, so review irrelevant or low-authority patterns before scaling outreach."
 						: "keep new links relevant so the trust score does not lag DR."
@@ -1036,7 +1036,7 @@ function coachAuditBacklinks(lookup: Lookup): void {
 		"",
 		"Next:",
 		trust != null && trust < 60
-			? "Prioritize cleanup or replacement of weak/irrelevant referring domains."
+			? "Prioritize reviewing weak or irrelevant referring domains, and use disavow only for confirmed severe spam risk."
 			: "Focus on adding relevant directory and partner links.",
 		`Run: vdr opportunities ${domain}`,
 	]);

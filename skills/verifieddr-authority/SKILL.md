@@ -101,7 +101,7 @@ vdr badge:snippets <domain>          # badge / embed snippets
 vdr sites:list                       # list YOUR sites
 vdr sites:monitor [<domain>] [--daily]   # watch YOUR sites for changes
 vdr sites:export <domain>            # machine-readable export of YOUR site
-vdr sites:disavow <domain>           # Google disavow candidates for spam links
+vdr sites:disavow <domain>           # Google disavow candidates for severe spam risk
 ```
 
 ## Growth Loop Prompts
@@ -113,11 +113,13 @@ skill should support:
 ```text
 Run the VerifiedDR growth loop for example.com.
 Analyze the TrueDR gap, then run `vdr sites:truedr example.com --detailed` to
-check the owner-scoped recommendations. If spam links are found, generate
-disavow candidates with `vdr sites:disavow example.com --min-spam 50` and list
-the domains I need to approve before upload. If no spam links are found, skip
-disavow and say so. Then choose the best partner opportunity, draft the outreach
-angle, and end with the exact command I should approve next.
+check the owner-scoped recommendations. If the detailed actions show severe
+spam-link risk, generate Google disavow candidates with `vdr sites:disavow
+example.com --min-spam 50`, explain that the file is only a candidate list, and
+list the domains I need to approve before any Search Console upload. If severe
+spam risk is not a top issue, skip disavow and say so. Then choose the best
+partner opportunity, draft the outreach angle, and end with the exact command I
+should approve next.
 ```
 
 ```text
@@ -177,11 +179,12 @@ copy.
   Owner-scoped: only the API key owner's own claimed sites.
 - `sites:export` when output feeds another script, CI job, dashboard, or
   integration.
-- `sites:disavow <domain>` when the owner wants a Google disavow-format
-  candidate file for spammy referring domains. It is cache-only, owner-scoped,
-  supports `--min-spam <n>` (default 50), `--include-lost`, `--limit <n>`, and
-  `--json`, and never submits anything to Google. Tell users to review the file
-  manually before uploading it in Google Search Console.
+- `sites:disavow <domain>` only when owner-scoped data shows severe spam-link
+  risk and the owner wants a Google disavow-format candidate file. It is
+  cache-only, owner-scoped, supports `--min-spam <n>` (default 50),
+  `--include-lost`, `--limit <n>`, and `--json`, and never submits anything to
+  Google. Tell users this is a manual Google Search Console candidate review,
+  not a default growth tactic or a guaranteed ranking/TrueDR improvement.
 - `sites:truedr <domain> --detailed` for the full per-signal trust breakdown,
   only available for sites the key owner owns.
 - `sites:submit` / `sites:verify` to list a new site or re-check its badge embed.
