@@ -7,12 +7,15 @@ description: >-
   authority gaps to clients/founders, looking up DR/TrueDR/trust evidence,
   discovering trusted sites by category or TrueDR for partner/sponsor/integration
   prospecting, grabbing badge or embed snippets, monitoring authority changes,
-  traffic validation, backlink deltas, trust/spam alerts on sites you own, and
-  Google disavow candidate files for spammy links; exporting VerifiedDR data for
+  traffic validation, backlink deltas, trust/spam alerts on sites you own,
+  Google disavow candidate files for spammy links, and keyword research: the DR
+  a keyword's Google top 10 demands, your DR gap to it, and winnable keywords a
+  domain already ranks 4-30 for; exporting VerifiedDR data for
   scripts, CI, dashboards, or SaaS integrations.
   Prefer this skill for requests mentioning VerifiedDR analyze, diagnose,
   actions, opportunities, next, lookup, find, monitor, export, snippets, TrueDR,
-  trust score, traffic validation, disavow, spam links, or agent-friendly
+  trust score, traffic validation, disavow, spam links, keyword research,
+  keyword difficulty by DR, winnable keywords, or agent-friendly
   VerifiedDR workflows.
 ---
 
@@ -20,8 +23,10 @@ description: >-
 
 Use VerifiedDR as the authority and trust data layer through the public `vdr`
 CLI (a thin HTTP client for `https://verifieddr.com/api/v1`). Keep work focused
-on authority/trust data. Do **not** turn VerifiedDR into a generic SEO suite
-(no keyword research, crawler audits, or site-audit workflows).
+on authority/trust data, including DR-based keyword research (what DR a
+keyword's top 10 demands and which keywords are winnable). Do **not** turn
+VerifiedDR into a generic SEO suite (no crawler audits, on-page analysis, or
+site-audit workflows).
 
 ## Quickstart
 
@@ -98,6 +103,8 @@ vdr map <domain> --json              # raw DR Map data
 vdr discover:find --category ai --min-truedr 50 --traffic-validated --limit 10
 vdr discover:find --opportunities-for example.com --limit 10
 vdr badge:snippets <domain>          # badge / embed snippets
+vdr keywords:research "<keyword>" [--domain <yours>]  # DR the Google top 10 demands
+vdr keywords:suggest <domain>        # winnable keywords a domain ranks 4-30 for
 vdr sites:list                       # list YOUR sites
 vdr sites:monitor [<domain>] [--daily]   # watch YOUR sites for changes
 vdr sites:export <domain>            # machine-readable export of YOUR site
@@ -173,6 +180,19 @@ copy.
   `--traffic-validated`, `--include-unverified`, `--limit` (max 50). Add
   `--opportunities-for <domain>` when the user needs site-specific partner
   matches. Ranked by TrueDR then DR for broad discovery.
+- `keywords:research "<keyword>"` when the user asks whether a keyword is
+  reachable, how hard a SERP is, or what DR it takes to rank. Returns the live
+  Google top 10 (US) with each domain's DR, the median DR ("DR needed"), and
+  the weakest ranking site ("entry point"). Add `--domain <theirs>` to get the
+  user's DR, gap, and verdict (`boost` = clears the bar, `advanced` = gap of
+  10 or less, `ultra` = bigger gap). Requires an Advanced or Ultra plan on the
+  key's account; free keys get `402` with an `upgradeUrl` to surface.
+- `keywords:suggest <domain>` to find winnable keywords: ones the domain
+  already ranks 4-30 for, where a DR gap is the likeliest blocker to the top
+  10. Works for any domain, so use it for competitor research too. Ordered by
+  estimated traffic value; brand/entity-name queries are filtered out. Feed
+  the best ones into `keywords:research` to see the exact DR gap per keyword.
+  Same Advanced/Ultra plan gate as `keywords:research`.
 - `badge:snippets` only for badge/share/embed snippets.
 - `sites:list` to list the key owner's own sites with current metrics.
 - `sites:monitor` to watch changes, summarize deltas, or check trust alerts.
@@ -198,6 +218,9 @@ hidden aliases, but prefer the `resource:action` forms above.
   `badge:snippets`. Never expose owner identity, billing state, or the
   per-signal trust breakdown. That data is not returned by these commands, so
   do not claim to have it.
+- **Paid-plan gated, any keyword/domain:** `keywords:research`,
+  `keywords:suggest`. Require an Advanced or Ultra plan on the key's account;
+  free keys get `402` with `upgradeUrl`, `requiredPlan`, and `blockedFeature`.
 - **Owner-scoped (key owner's own sites only):** `sites:list`, `sites:get`,
   `sites:truedr`, `sites:export`, `sites:disavow`, `sites:monitor`,
   `sites:submit`, `sites:verify`. If the user asks to monitor, export, or

@@ -141,10 +141,72 @@ vdr discover:find --opportunities-for example.com --limit 10
 Returns `{ find: { filters, sites: [ <lookup payload>, ... ] } }`, ranked by
 TrueDR then DR. Filters: `--category <slug>`, `--min-truedr <n>`, `--min-dr <n>`,
 `--traffic-validated`, `--include-unverified`, `--limit <n>` (max 50). Use for
-partner / sponsor / trusted-site discovery, not keyword or backlink analysis.
+partner / sponsor / trusted-site discovery; for keyword work use
+`keywords:research` / `keywords:suggest` instead.
 With `--opportunities-for`, the endpoint returns `{ opportunities: { domain,
 redacted: false, filters, candidates } }` using the site-specific TrueDR Connect
 match ranking.
+
+## keywords:research (Advanced/Ultra plans)
+
+```bash
+vdr keywords:research "best crm for startups"
+# GET /api/v1/keywords?keyword=best+crm+for+startups
+
+vdr keywords:research "best crm for startups" --domain example.com
+# GET /api/v1/keywords?keyword=best+crm+for+startups&domain=example.com
+```
+
+```json
+{
+  "ok": true,
+  "report": {
+    "keyword": "best crm for startups",
+    "fetchedAt": "2026-07-01T00:00:00.000Z",
+    "cached": true,
+    "results": [
+      { "position": 1, "domain": "strong.example", "url": "https://strong.example/post", "title": "Best CRM…", "dr": 78, "trackedSlug": null }
+    ],
+    "medianDr": 64,
+    "minDr": 48,
+    "user": { "domain": "example.com", "dr": 41, "gap": 23, "tier": "ultra" }
+  }
+}
+```
+
+- `results`: live Google top 10 (US, English), one row per organic result with
+  the domain's DR (0 to 100; `null` when unresolved).
+- `medianDr`: the realistic "DR needed" target; `minDr`: the weakest ranking
+  domain, the entry point that proves the SERP is reachable below the median.
+- `user` (only with `domain`): the caller's DR, gap to the median, and verdict
+  tier: `boost` (clears the bar), `advanced` (gap of 10 or less), `ultra`
+  (bigger gap).
+- Free keys get `402` with `upgradeUrl`, `requiredPlan`, `blockedFeature:
+  "keyword_research"`. Uncached keywords are rate-limited harder than cached
+  ones because each miss pays a live SERP fetch.
+
+## keywords:suggest (Advanced/Ultra plans)
+
+```bash
+vdr keywords:suggest example.com
+# GET /api/v1/keywords/suggestions/example.com
+```
+
+```json
+{
+  "ok": true,
+  "domain": "example.com",
+  "suggestions": [
+    { "keyword": "crm for solo founders", "position": 12, "searchVolume": 720 }
+  ]
+}
+```
+
+Winnable keywords the domain already ranks 4-30 for, ordered by estimated
+traffic value, with one-word heads and brand/entity-name queries filtered out.
+Works for any domain (competitor research included). Served from a 30-day
+cache; an empty array means the domain has no qualifying rankings. Same plan
+gate and error shape as `keywords:research`.
 
 ## badge:snippets (public)
 

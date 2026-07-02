@@ -100,6 +100,11 @@ vdr discover:find --opportunities-for example.com --limit 10
 vdr badge:snippets stripe.com         # badge / embed snippets
 vdr categories:list                   # valid category values
 
+# Keyword research (Advanced/Ultra plans)
+vdr keywords:research "best crm for startups"                  # DR the top 10 demands
+vdr keywords:research "best crm for startups" --domain example.com  # + your gap/verdict
+vdr keywords:suggest example.com      # winnable keywords the domain ranks 4-30 for
+
 # Your own sites (owner-scoped)
 vdr sites:list                        # list your sites + metrics
 vdr sites:get example.com             # one site with DR/traffic trends
@@ -123,6 +128,13 @@ vdr sites:verify example.com          # re-check the badge embed
   identity, billing state, or the per-signal trust breakdown. `vdr map` is
   cache-only: it never triggers a paid backlink fetch; if no cached map exists
   yet, try again after the site's DR Map has been opened or refreshed.
+- **Keyword research** (`keywords:research`, `keywords:suggest`): requires an
+  Advanced or Ultra plan on the key's account (free keys get a 402 with an
+  upgrade link). `keywords:research` returns the live Google top 10 for a
+  keyword with each domain's DR, the median ("DR needed") and the weakest
+  ranking site ("entry point"); pass `--domain` to get your gap and verdict.
+  `keywords:suggest` works for any domain and returns keywords it already
+  ranks 4-30 for, where authority is the likeliest blocker.
 - **Owner-scoped** (`sites:*`): only your own claimed sites.
   `sites:truedr --detailed` returns the full signal breakdown for sites you own.
   `sites:disavow` prints a Google disavow-format candidate file only for severe

@@ -87,6 +87,7 @@ const VALUE_FLAGS = new Set([
 	"--category",
 	"--contact",
 	"--description",
+	"--domain",
 	"--goal",
 	"--key",
 	"--limit",
@@ -248,6 +249,13 @@ API commands (any approved site):
   vdr badge:snippets <domain>            Badge / embed snippets
   vdr categories:list                    Valid category values
 
+Keyword research (Advanced/Ultra plans):
+  vdr keywords:research "<keyword>" [--domain <yours>]
+                                         DR the Google top 10 demands; with
+                                         --domain also your gap and verdict
+  vdr keywords:suggest <domain>          Winnable keywords the domain already
+                                         ranks 4-30 for (any domain)
+
 Your own sites (owner-scoped):
   vdr sites:list                         List your sites + metrics
   vdr sites:get <domain>                 One of your sites with DR/traffic trends
@@ -301,6 +309,8 @@ const ALIASES: Record<string, string> = {
 	verify: "sites:verify",
 	snippets: "badge:snippets",
 	categories: "categories:list",
+	keywords: "keywords:research",
+	keyword: "keywords:research",
 };
 
 type Lookup = {
@@ -1184,6 +1194,22 @@ async function main(): Promise<void> {
 				`/api/v1/sites/${encode(domainArg(args))}/truedr${detailed}`,
 			);
 		}
+		case "keywords:research": {
+			const keyword = positionalArgs(args)[0];
+			if (!keyword) {
+				fail('A keyword is required (e.g. "best crm for startups").', 2);
+			}
+			const q = new URLSearchParams({ keyword });
+			const domain = option(args, "--domain");
+			if (domain) q.set("domain", domain);
+			return request(args, "GET", `/api/v1/keywords?${q}`);
+		}
+		case "keywords:suggest":
+			return request(
+				args,
+				"GET",
+				`/api/v1/keywords/suggestions/${encode(domainArg(args))}`,
+			);
 		case "discover:find": {
 			const q = new URLSearchParams();
 			const category = option(args, "--category");
