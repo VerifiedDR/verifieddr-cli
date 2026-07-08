@@ -849,7 +849,7 @@ async function contactPartnershipOpportunity(args: string[]): Promise<void> {
 		opportunitiesFor: domain,
 		target,
 		trafficValidated: true,
-		limit: 10,
+		limit: 25,
 		minTrueDr: Number(option(args, "--min-truedr") || "20"),
 		subject,
 		message,
