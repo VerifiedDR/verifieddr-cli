@@ -1,6 +1,6 @@
 {
 	"name": "verifieddr",
-	"version": "0.3.2",
+	"version": "0.3.3",
 	"description": "CLI for the VerifiedDR API — diagnose TrueDR gaps, find verified partner opportunities, and monitor authority changes.",
 	"type": "module",
 	"bin": {

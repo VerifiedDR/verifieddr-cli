@@ -845,12 +845,14 @@ async function contactPartnershipOpportunity(args: string[]): Promise<void> {
 			2,
 		);
 	}
+	// No trafficValidated/minTrueDr defaults here: those are display-ranking
+	// filters for the candidate list. Contact must accept any discoverable
+	// candidate, or slugs surfaced by discover:find 404 on contact.
 	const body: Json = {
 		opportunitiesFor: domain,
 		target,
-		trafficValidated: true,
 		limit: 25,
-		minTrueDr: Number(option(args, "--min-truedr") || "20"),
+		minTrueDr: Number(option(args, "--min-truedr") || "0"),
 		subject,
 		message,
 	};
