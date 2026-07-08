@@ -13,8 +13,6 @@
 const DEFAULT_BASE = "https://verifieddr.com";
 const DEFAULT_UPGRADE_URL =
 	"https://verifieddr.com/pricing?source=cli&feature=api";
-const PARTNERSHIP_UPGRADE_URL =
-	"https://verifieddr.com/pricing?source=cli&feature=partnerships";
 
 type Json = Record<string, unknown>;
 type ApiTier = "free" | "pro" | "agency" | string;
@@ -430,10 +428,6 @@ function score(value: number | null): string {
 	return value == null ? "unknown" : String(Math.round(value));
 }
 
-function canShowPartnerNames(): boolean {
-	return true;
-}
-
 function gapOf(lookup: Lookup): number | null {
 	const dr = num(lookup.authority?.dr);
 	const trueDr = num(lookup.authority?.trueDr);
@@ -759,7 +753,6 @@ function coachActionList(lookup: Lookup): void {
 function candidateLabel(
 	site: Lookup,
 	index: number,
-	showNames: boolean,
 ): string {
 	const trueDr = score(num(site.authority?.trueDr));
 	const dr = score(num(site.authority?.dr));
@@ -767,7 +760,6 @@ function candidateLabel(
 	const metric = `TrueDR ${trueDr}, DR ${dr}${
 		traffic == null ? "" : `, traffic ${traffic}`
 	}`;
-	if (!showNames) return `Potential partner ${index + 1}: ${metric}`;
 	const name = site.title || site.domain || `Potential partner ${index + 1}`;
 	const domain = site.domain && site.domain !== name ? ` (${site.domain})` : "";
 	return `${name}${domain}: ${metric}`;
@@ -811,27 +803,60 @@ async function partnershipCandidates(
 	}
 }
 
-async function contactPartnershipOpportunity(
-	lookup: Lookup,
-	args: string[],
-): Promise<void> {
+function draftOutreach(
+	domain: string,
+	target: string,
+): { subject: string; message: string } {
+	const targetName = target
+		.replace(/[-_]+/g, " ")
+		.replace(/\s+(com|io|dev|me|best|net|org|co|app|ai)$/i, "")
+		.trim();
+	return {
+		subject: `Partnership idea: ${domain} x ${targetName}`,
+		message:
+			`Hi, I run ${domain}. VerifiedDR matched our sites as a partnership fit based on category and authority overlap. ` +
+			"I'd like to explore a co-marketing swap: a mutual mention, a content collaboration, or an integration, whatever fits best on your side. Open to ideas.",
+	};
+}
+
+function shellQuote(value: string): string {
+	return `"${value.replace(/(["\\$`])/g, "\\$1")}"`;
+}
+
+async function contactPartnershipOpportunity(args: string[]): Promise<void> {
 	const target = option(args, "--contact");
 	if (!target) fail("--contact requires a listed opportunity slug or domain.", 2);
-	const domain = lookup.domain || commandDomainArg(args);
+	const domain = commandDomainArg(args);
+	const dryRun = flag(args, "--dry-run");
+	let subject = option(args, "--subject");
+	let message = option(args, "--message");
+	// A dry run previews drafted copy; the actual send always requires the
+	// caller to pass the approved subject and message explicitly.
+	let drafted = false;
+	if (dryRun && (!subject || !message)) {
+		const draft = draftOutreach(domain, target);
+		subject = subject || draft.subject;
+		message = message || draft.message;
+		drafted = true;
+	}
+	if (!subject || !message) {
+		fail(
+			`Outreach copy is required to send. Preview a draft first with:\n  vdr opportunities ${domain} --contact ${target} --dry-run\nthen approve it by passing --subject and --message on the send.`,
+			2,
+		);
+	}
 	const body: Json = {
 		opportunitiesFor: domain,
 		target,
 		trafficValidated: true,
 		limit: 10,
 		minTrueDr: Number(option(args, "--min-truedr") || "20"),
+		subject,
+		message,
 	};
 	const category = option(args, "--category");
 	if (category) body.category = category;
-	const subject = option(args, "--subject");
-	if (subject) body.subject = subject;
-	const message = option(args, "--message");
-	if (message) body.message = message;
-	if (flag(args, "--dry-run")) {
+	if (dryRun) {
 		body.dryRun = true;
 	}
 
@@ -850,14 +875,20 @@ async function contactPartnershipOpportunity(
 	const label = to?.title || to?.domain || target;
 	const quota = contact?.quota;
 	if (contact?.dryRun) {
+		const previewSubject = contact.subject ?? subject;
+		const previewMessage = contact.message ?? message;
 		printLines([
 			`Dry run: partnership email to ${label}.`,
-			contact.subject ? `Subject: ${contact.subject}` : null,
-			contact.message ? `Message: ${contact.message}` : null,
+			drafted
+				? "Drafted copy (edit anything below before sending):"
+				: null,
+			previewSubject ? `Subject: ${previewSubject}` : null,
+			previewMessage ? `Message: ${previewMessage}` : null,
 			quota
 				? `Partnership contacts: ${quota.used ?? "?"}/${quota.limit ?? "unlimited"} used (${quota.plan ?? "plan"})`
 				: null,
-			"Nothing was sent. Run the same command without --dry-run to send the partnership request.",
+			"Nothing was sent. Send after approval with:",
+			`  vdr opportunities ${domain} --contact ${target} --subject ${shellQuote(previewSubject ?? "")} --message ${shellQuote(previewMessage ?? "")}`,
 		]);
 		return;
 	}
@@ -875,14 +906,13 @@ async function coachOpportunities(
 	args: string[],
 ): Promise<void> {
 	if (option(args, "--contact")) {
-		return contactPartnershipOpportunity(lookup, args);
+		return contactPartnershipOpportunity(args);
 	}
 	const type = option(args, "--type") || "all";
 	const domain = lookup.domain || domainArg(args);
 	const trust = num(lookup.authority?.trustScore);
 	const referringDomains = num(lookup.evidence?.referringDomains);
 	const topBacklinks = lookup.evidence?.topBacklinks ?? [];
-	const showNames = canShowPartnerNames();
 	const candidates =
 		type === "all" || type === "partners"
 			? await partnershipCandidates(lookup, args)
@@ -897,7 +927,7 @@ async function coachOpportunities(
 			: null,
 		type === "all" || type === "partners"
 			? `Partner links: ask customers, integrations, communities, and portfolio pages for contextual mentions${
-					topBacklinks.length > 0 && showNames
+					topBacklinks.length > 0
 						? ` similar to ${topBacklinks[0]?.sourceDomain || "the strongest current referring domains"}.`
 						: "."
 				}`
@@ -918,18 +948,16 @@ async function coachOpportunities(
 		candidates.length > 0
 			? "Potential partnerships:"
 			: null,
-		...candidates.map((site, index) =>
-			showNames && (site.slug || site.domain)
-				? `${index + 1}. ${candidateLabel(site, index, showNames)}${site.opportunity?.reason ? `
-   Angle: ${site.opportunity.type || "Partnership"} - ${site.opportunity.reason}` : ""}
+		...candidates.map(
+			(site, index) => `${index + 1}. ${candidateLabel(site, index)}${
+				site.opportunity?.reason
+					? `
+   Angle: ${site.opportunity.type || "Partnership"} - ${site.opportunity.reason}`
+					: ""
+			}
    Preview drafted mail: vdr opportunities ${domain} --contact ${site.slug || site.domain || ""} --dry-run
-   Send after approval: vdr opportunities ${domain} --contact ${site.slug || site.domain || ""}`
-				: `${index + 1}. ${candidateLabel(site, index, showNames)}
-   Upgrade to reveal the partner and start outreach: ${PARTNERSHIP_UPGRADE_URL}`,
+   Send after approval: vdr opportunities ${domain} --contact ${site.slug || site.domain || ""}`,
 		),
-		candidates.length > 0
-			? `Free users see a limited preview. Upgrade to reveal partner details and start outreach: ${PARTNERSHIP_UPGRADE_URL}`
-			: null,
 		"",
 		"Next:",
 		`Run: vdr actions ${domain}`,
@@ -1082,11 +1110,11 @@ async function coachNext(
 ): Promise<void> {
 	const action = coachActions(lookup)[0];
 	const domain = lookup.domain || commandDomainArg(args);
-	const showNames = canShowPartnerNames();
 	const partnerCandidates = action?.run.startsWith("vdr opportunities ")
 		? await partnershipCandidates(lookup, args)
 		: [];
 	const partner = partnerCandidates[0];
+	const partnerRef = partner ? partner.slug || partner.domain || "" : "";
 	printLines([
 		`Best next action for ${domain}:`,
 		action.title,
@@ -1096,18 +1124,15 @@ async function coachNext(
 		`Run: ${action.run}`,
 		partner ? "" : null,
 		partner ? "Suggested partner:" : null,
-		partner ? candidateLabel(partner, 0, showNames) : null,
+		partner ? candidateLabel(partner, 0) : null,
 		partner?.opportunity?.reason
 			? `Angle: ${partner.opportunity.type || "Partnership"} - ${partner.opportunity.reason}`
 			: null,
-		partner && showNames && (partner.slug || partner.domain)
-			? `Preview before sending: vdr opportunities ${domain} --contact ${partner.slug || partner.domain || ""} --dry-run`
+		partnerRef
+			? `Preview before sending: vdr opportunities ${domain} --contact ${partnerRef} --dry-run`
 			: null,
-		partner && showNames && (partner.slug || partner.domain)
-			? `Approve + send: vdr opportunities ${domain} --contact ${partner.slug || partner.domain || ""}`
-			: null,
-		partner && (!showNames || !(partner.slug || partner.domain))
-			? `Upgrade to reveal the partner and start outreach: ${PARTNERSHIP_UPGRADE_URL}`
+		partnerRef
+			? `Approve + send: vdr opportunities ${domain} --contact ${partnerRef}`
 			: null,
 	]);
 }
@@ -1118,6 +1143,11 @@ async function coach(command: string, args: string[]): Promise<void> {
 		if (first !== "backlinks") {
 			fail("Usage: vdr audit backlinks <domain>", 2);
 		}
+	}
+	// Contact only needs the domain string, so skip the lookup call: a
+	// partnership contact spends one quota unit, not two.
+	if (command === "coach:opportunities" && option(args, "--contact")) {
+		return contactPartnershipOpportunity(args);
 	}
 	const context = await lookupContext(args);
 	const { lookup } = context;

@@ -82,17 +82,18 @@ vdr next <domain>                     # best next partner/action
 ```
 
 The coach loop is partner-first: `next` prefers one concrete verified partner
-action when that is the fastest useful authority move. `opportunities` can
-surface potential partnership candidates, the outreach angle, and the exact
-command to approve before sending. Partner names are shown only on paid plans;
-free users see a limited preview and must upgrade before outreach can start. Pro
-and Agency users can contact a listed partner with `vdr opportunities <domain> --contact <slug-or-domain>`,
-which sends drafted mail through VerifiedDR's partnership mail system without
-exposing the target owner's email. Add `--subject`, `--message`, and `--dry-run`
-to validate the target, quota, and payload before sending. Partner candidates require an
-additional opportunities lookup, so this command can spend two quota calls.
-When outreach is blocked, surface the CLI/API `upgradeUrl`; the default
-conversion URL is `https://verifieddr.com/pricing?source=cli&feature=partnerships`.
+action when that is the fastest useful authority move. `opportunities` surfaces
+partnership candidates with full names on every plan, the outreach angle, and
+the exact command to approve before sending. Contact a listed partner with
+`vdr opportunities <domain> --contact <slug-or-domain>`, which sends mail
+through VerifiedDR's partnership mail system without exposing the target
+owner's email. Run `--dry-run` first: it validates the target and quota and
+previews drafted subject/message copy (or your own `--subject`/`--message`).
+Sending always requires explicit `--subject` and `--message`; approve the
+previewed copy by passing it on the send command, which the dry-run output
+prints ready to run. A contact call spends one quota unit. The plan only sets
+the monthly partner-contact limit; when it is reached, surface the CLI/API
+`upgradeUrl`.
 
 Use API commands when the user needs raw data, scripting, or integrations:
 

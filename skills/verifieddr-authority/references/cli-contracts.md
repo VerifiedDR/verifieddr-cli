@@ -32,17 +32,19 @@ command to execute. It prefers one concrete verified partner action when
 VerifiedDR can surface a reasonable match.
 
 `opportunities` also calls the server-side opportunities mode to list potential
-partnership candidates, outreach angles, and contact commands. Partner names are
-shown only on paid plans; free users see a limited preview and must upgrade
-before outreach can start. This can spend two quota calls: one lookup and one
+partnership candidates, outreach angles, and contact commands. Partner names
+are shown in full on every plan; only the monthly contact limit is
+plan-governed. Listing can spend two quota calls: one lookup and one
 opportunities request.
 
 `opportunities --contact <slug-or-domain>` sends mail to the listed candidate
 through VerifiedDR's partnership mail system, using the same source ownership
-check, target opt-out handling, Pro/Agency contact quota, request logging, and
-sender confirmation as the dashboard UI. Optional `--subject` and `--message`
-override the generated outreach draft. Add `--dry-run` to print the exact POST
-payload without sending. Free users receive `402` with `upgradeUrl`,
+check, target opt-out handling, contact quota, request logging, and sender
+confirmation as the dashboard UI. It spends one quota call and skips the
+lookup. `--dry-run` validates the target and quota and previews the outreach
+copy; when `--subject`/`--message` are omitted, the CLI drafts them for the
+preview. Sending requires explicit `--subject` and `--message` (outreach is
+human-approved; the server rejects sends without them). Free users receive `402` with `upgradeUrl`,
 `requiredPlan`, and `blockedFeature`; agents should show that URL as the next
 step.
 
