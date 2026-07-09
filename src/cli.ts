@@ -263,6 +263,9 @@ Your own sites (owner-scoped):
   vdr sites:monitor [<domain>] [--daily] Watch changes + trust alerts
   vdr sites:submit <url> [--title --description --category --xhandle]
   vdr sites:verify <domain>              Re-check the badge embed
+  vdr sites:gsc-audit <domain> [--run]   Google index audit via your connected
+                                         Search Console property (--run starts
+                                         a fresh one; 12h cooldown)
 
 discover:find filters:
   --category <slug>  --min-truedr <n>  --min-dr <n>
@@ -305,6 +308,7 @@ const ALIASES: Record<string, string> = {
 	monitor: "sites:monitor",
 	submit: "sites:submit",
 	verify: "sites:verify",
+	"gsc-audit": "sites:gsc-audit",
 	snippets: "badge:snippets",
 	categories: "categories:list",
 	keywords: "keywords:research",
@@ -1271,6 +1275,12 @@ async function main(): Promise<void> {
 			return request(args, "POST", "/api/v1/verify", {
 				url: domainArg(args),
 			});
+		case "sites:gsc-audit": {
+			const path = `/api/v1/sites/${encode(domainArg(args))}/gsc-audit`;
+			// GET returns the latest stored audit; --run spends inspection budget
+			// on a fresh one (server enforces a 12h cooldown).
+			return request(args, flag(args, "--run") ? "POST" : "GET", path);
+		}
 		case "sites:submit": {
 			const url = domainArg(args);
 			const body: Json = { url };

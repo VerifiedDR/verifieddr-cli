@@ -116,6 +116,8 @@ vdr sites:monitor --daily             # watch all your sites for changes
 vdr sites:monitor example.com         # watch one site
 vdr sites:submit https://example.com --title "Example" --category saas
 vdr sites:verify example.com          # re-check the badge embed
+vdr sites:gsc-audit example.com       # latest Google index audit (needs GSC connected)
+vdr sites:gsc-audit example.com --run # run a fresh audit (12h cooldown)
 ```
 
 > The pre-`0.2` verbs (`lookup`, `find`, `sites`, `monitor`, ...) still work as
