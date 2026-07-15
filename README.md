@@ -121,7 +121,18 @@ vdr sites:gsc-performance example.com # 28d GSC totals, daily series + top dimen
 vdr sites:gsc-performance example.com --range 3m # 28d, 3m, 6m, 12m, or 16m
 vdr sites:gsc-audit example.com       # latest Google index audit (needs GSC connected)
 vdr sites:gsc-audit example.com --run # run a fresh audit (12h cooldown)
+
+# Ping search engines about new or updated URLs (IndexNow)
+vdr sites:submit-urls --generate-key  # one-time: create a key, host <key>.txt on your domain
+vdr sites:submit-urls https://example.com/blog/new-post https://example.com/pricing
 ```
+
+`sites:submit-urls` runs entirely client-side against the shared IndexNow
+endpoint (Bing, Yandex, Seznam, Naver) and spends no VerifiedDR quota. It
+needs a one-time key file on your domain: run `--generate-key`, upload the
+printed `<key>.txt` to your site root, and set `INDEXNOW_KEY`. Google has no
+public request-indexing API for regular pages; for Google, keep your sitemap
+`lastmod` fresh and verify pickup with `vdr sites:gsc-audit`.
 
 > The pre-`0.2` verbs (`lookup`, `find`, `sites`, `monitor`, ...) still work as
 > hidden aliases, so existing scripts keep running.

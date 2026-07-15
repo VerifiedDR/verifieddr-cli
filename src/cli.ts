@@ -87,7 +87,9 @@ const VALUE_FLAGS = new Set([
 	"--description",
 	"--domain",
 	"--goal",
+	"--indexnow-key",
 	"--key",
+	"--key-location",
 	"--limit",
 	"--message",
 	"--min-spam",
@@ -273,6 +275,12 @@ Your own sites (owner-scoped):
   vdr sites:gsc-audit <domain> [--run]   Google index audit via your connected
                                          Search Console property (--run starts
                                          a fresh one; 12h cooldown)
+  vdr sites:submit-urls <url> [url...]   Push new/updated URLs to search engines
+                                         via IndexNow (Bing, Yandex, Seznam,
+                                         Naver; Google has no such API). Needs
+                                         an IndexNow key file hosted on the
+                                         domain: --indexnow-key or INDEXNOW_KEY
+                                         env; --generate-key to create one
 
 discover:find filters:
   --category <slug>  --min-truedr <n>  --min-dr <n>
@@ -316,6 +324,7 @@ const ALIASES: Record<string, string> = {
 	submit: "sites:submit",
 	verify: "sites:verify",
 	"gsc-audit": "sites:gsc-audit",
+	"submit-urls": "sites:submit-urls",
 	snippets: "badge:snippets",
 	categories: "categories:list",
 	keywords: "keywords:research",
@@ -1150,6 +1159,141 @@ async function coachNext(
 	]);
 }
 
+const INDEXNOW_ENDPOINT = "https://api.indexnow.org/indexnow";
+
+function indexNowKey(args: string[]): string | undefined {
+	return (
+		option(args, "--indexnow-key") ||
+		process.env.INDEXNOW_KEY ||
+		process.env.VERIFIEDDR_INDEXNOW_KEY
+	);
+}
+
+/**
+ * Submit URLs to IndexNow-compatible search engines (Bing, Yandex, Seznam,
+ * Naver). This runs entirely client-side against api.indexnow.org: no
+ * VerifiedDR API call, no quota spend. Google does not support IndexNow or any
+ * public request-indexing API for regular pages; for Google, keep the sitemap
+ * lastmod fresh and verify pickup with `vdr sites:gsc-audit`.
+ */
+async function sitesSubmitUrls(args: string[]): Promise<void> {
+	if (flag(args, "--generate-key")) {
+		const { randomBytes } = await import("node:crypto");
+		const key = randomBytes(16).toString("hex");
+		out({
+			ok: true,
+			indexNowKey: key,
+			instructions: [
+				`1. Host a plain-text file at https://<your-domain>/${key}.txt containing exactly: ${key}`,
+				`2. Export it: export INDEXNOW_KEY=${key}`,
+				"3. Submit: vdr sites:submit-urls https://<your-domain>/some-page",
+			],
+		});
+		return;
+	}
+
+	const rawUrls = positionalArgs(args);
+	if (rawUrls.length === 0) {
+		fail(
+			"At least one full URL is required (e.g. vdr sites:submit-urls https://example.com/blog/post).",
+			2,
+		);
+	}
+	if (rawUrls.length > 10000) {
+		fail("IndexNow accepts at most 10,000 URLs per submission.", 2);
+	}
+
+	let host = "";
+	const urls: string[] = [];
+	for (const raw of rawUrls) {
+		let parsed: URL;
+		try {
+			parsed = new URL(raw);
+		} catch {
+			fail(`Not a valid URL: ${raw}. Pass full URLs including https://.`, 2);
+		}
+		if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+			fail(`Unsupported protocol in URL: ${raw}`, 2);
+		}
+		if (!host) host = parsed.hostname;
+		if (parsed.hostname !== host) {
+			fail(
+				`All URLs must share one host per submission. Got ${parsed.hostname}, expected ${host}.`,
+				2,
+			);
+		}
+		urls.push(parsed.toString());
+	}
+
+	const key = indexNowKey(args);
+	if (!key) {
+		fail(
+			"Missing IndexNow key. Pass --indexnow-key <key> or set INDEXNOW_KEY. No key yet? Run: vdr sites:submit-urls --generate-key",
+			3,
+		);
+	}
+
+	const keyLocation =
+		option(args, "--key-location") ?? `https://${host}/${key}.txt`;
+
+	if (!flag(args, "--skip-verify")) {
+		let served: string | null = null;
+		try {
+			const res = await fetch(keyLocation, {
+				signal: AbortSignal.timeout(15000),
+			});
+			if (res.ok) served = (await res.text()).trim();
+		} catch {
+			served = null;
+		}
+		if (served !== key) {
+			fail(
+				`Key file check failed: ${keyLocation} must serve exactly the key. Host the file first (or pass --key-location / --skip-verify).`,
+				4,
+			);
+		}
+	}
+
+	let response: Response;
+	try {
+		response = await fetch(INDEXNOW_ENDPOINT, {
+			method: "POST",
+			headers: { "Content-Type": "application/json; charset=utf-8" },
+			body: JSON.stringify({ host, key, keyLocation, urlList: urls }),
+			signal: AbortSignal.timeout(20000),
+		});
+	} catch (error) {
+		fail(
+			`IndexNow request failed: ${error instanceof Error ? error.message : String(error)}`,
+			4,
+		);
+	}
+
+	if (response.status !== 200 && response.status !== 202) {
+		const reason =
+			{
+				400: "invalid request format",
+				403: "key not valid for this host (check the key file)",
+				422: "URLs do not belong to the host or key mismatch",
+				429: "too many requests, slow down",
+			}[response.status] ?? (await response.text().catch(() => ""));
+		fail(`IndexNow rejected the submission (HTTP ${response.status}): ${reason}`, 4);
+	}
+
+	out({
+		ok: true,
+		indexNow: {
+			host,
+			status: response.status,
+			submitted: urls.length,
+			urls,
+			keyLocation,
+			engines: "Bing, Yandex, Seznam, Naver (shared IndexNow endpoint)",
+			note: "Google does not support IndexNow. For Google, keep your sitemap lastmod fresh and verify pickup with `vdr sites:gsc-audit`.",
+		},
+	});
+}
+
 async function coach(command: string, args: string[]): Promise<void> {
 	if (command === "coach:audit") {
 		const first = positionalArgs(args)[0];
@@ -1299,6 +1443,8 @@ async function main(): Promise<void> {
 			const path = `/api/v1/sites/${encode(domainArg(args))}/gsc-performance?${new URLSearchParams({ range })}`;
 			return request(args, "GET", path);
 		}
+		case "sites:submit-urls":
+			return sitesSubmitUrls(args);
 		case "sites:submit": {
 			const url = domainArg(args);
 			const body: Json = { url };
