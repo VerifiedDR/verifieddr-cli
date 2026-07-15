@@ -100,7 +100,7 @@ vdr authority:lookup stripe.com
 - The per-signal trust **breakdown** is intentionally NOT returned here. It is
   available only via `truedr --detailed` for sites you own.
 
-## map (public, any approved site)
+## map / authority:map (public, any approved site)
 
 ```bash
 vdr map stripe.com
@@ -210,6 +210,42 @@ Works for any domain (competitor research included). Served from a 30-day
 cache; an empty array means the domain has no qualifying rankings. Same plan
 gate and error shape as `keywords:research`.
 
+## keywords:tracked (owner-scoped, free)
+
+```bash
+vdr keywords:tracked example.com
+# GET /api/v1/sites/example.com/keywords
+```
+
+```json
+{
+  "ok": true,
+  "website": { "slug": "example-com", "url": "https://example.com" },
+  "keywords": [
+    {
+      "keyword": "crm for solo founders",
+      "lastCheckedAt": "2026-07-08T09:00:00.000Z",
+      "snapshot": {
+        "medianDr": 54, "minDr": 38, "userDr": 41, "gap": 13, "tier": "advanced",
+        "searchVolume": 720, "cpc": 4.1, "userPosition": 12, "prevPosition": 15
+      },
+      "impressions": 1840, "gscPosition": 11
+    }
+  ],
+  "limit": 25,
+  "quota": { "used": 1, "limit": 3 }
+}
+```
+
+The saved keyword targets from the dashboard Keywords tab for one of the
+key owner's sites, with the stored difficulty snapshot per keyword and, when
+the site has a connected Search Console property, 28-day impressions and
+position. A pure read of stored data on every plan: it never triggers a live
+SERP fetch, so there is no plan gate (refreshing snapshots stays a dashboard
+Pro/Ultra action). `quota` reports the free plan's monthly check allowance;
+paid plans get `"limit": null`. Use this before `keywords:research` to avoid
+re-paying for keywords that already have a fresh snapshot.
+
 ## badge:snippets (public)
 
 ```bash
@@ -267,10 +303,29 @@ vdr sites:truedr example.com --detailed # GET /api/v1/sites/example.com/truedr?d
 vdr sites:disavow example.com           # GET /api/v1/disavow/example.com
 vdr sites:submit https://example.com --title "Example" --category saas   # POST /api/v1/sites
 vdr sites:verify example.com            # POST /api/v1/verify
+vdr sites:gsc-performance example.com --range 28d # GET /api/v1/sites/example.com/gsc-performance?range=28d
+vdr sites:gsc-audit example.com         # GET /api/v1/sites/example.com/gsc-audit
+vdr sites:gsc-audit example.com --run   # POST /api/v1/sites/example.com/gsc-audit
 ```
 
 `sites:truedr --detailed` includes the full per-signal `breakdown` for owned
 sites. The pre-`0.2` verbs (`sites`, `site`, `truedr`, ...) still work as aliases.
+
+## sites:gsc-performance (owner-scoped)
+
+Returns `{ range, performance }`, where `performance` contains the connection
+summary, daily `series`, aggregate `totals`, immediately preceding
+`previousTotals`, and a `snapshot` of top `queries`, `pages`, `countries`, and
+`devices`. Each metric row includes clicks, impressions, CTR, and average
+position. Ranges are `28d`, `3m`, `6m`, `12m`, and `16m`; invalid ranges return
+`400`. A connected Search Console property and eligible plan are required.
+
+## sites:gsc-audit (owner-scoped)
+
+GET returns the latest stored index audit. `--run` uses POST to start a fresh
+audit, spends a budgeted URL Inspection sample, and is subject to the server's
+12-hour cooldown. The audit covers sitemap health, pages with impressions, and
+sampled indexed/not-indexed states; it is distinct from performance reporting.
 
 ## Errors
 

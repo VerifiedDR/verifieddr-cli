@@ -94,6 +94,7 @@ const VALUE_FLAGS = new Set([
 	"--min-dr",
 	"--min-truedr",
 	"--opportunities-for",
+	"--range",
 	"--subject",
 	"--title",
 	"--type",
@@ -253,6 +254,9 @@ Keyword research (Advanced/Ultra plans):
                                          --domain also your gap and verdict
   vdr keywords:suggest <domain>          Winnable keywords the domain already
                                          ranks 4-30 for (any domain)
+  vdr keywords:tracked <domain>          Your saved keyword targets with stored
+                                         difficulty snapshots (own sites; free,
+                                         reads stored data only)
 
 Your own sites (owner-scoped):
   vdr sites:list                         List your sites + metrics
@@ -263,6 +267,9 @@ Your own sites (owner-scoped):
   vdr sites:monitor [<domain>] [--daily] Watch changes + trust alerts
   vdr sites:submit <url> [--title --description --category --xhandle]
   vdr sites:verify <domain>              Re-check the badge embed
+  vdr sites:gsc-performance <domain> [--range 28d]
+                                         Clicks, impressions, CTR, position,
+                                         and top queries/pages/countries/devices
   vdr sites:gsc-audit <domain> [--run]   Google index audit via your connected
                                          Search Console property (--run starts
                                          a fresh one; 12h cooldown)
@@ -1246,6 +1253,12 @@ async function main(): Promise<void> {
 				"GET",
 				`/api/v1/keywords/suggestions/${encode(domainArg(args))}`,
 			);
+		case "keywords:tracked":
+			return request(
+				args,
+				"GET",
+				`/api/v1/sites/${encode(domainArg(args))}/keywords`,
+			);
 		case "discover:find": {
 			const q = new URLSearchParams();
 			const category = option(args, "--category");
@@ -1280,6 +1293,11 @@ async function main(): Promise<void> {
 			// GET returns the latest stored audit; --run spends inspection budget
 			// on a fresh one (server enforces a 12h cooldown).
 			return request(args, flag(args, "--run") ? "POST" : "GET", path);
+		}
+		case "sites:gsc-performance": {
+			const range = option(args, "--range") ?? "28d";
+			const path = `/api/v1/sites/${encode(domainArg(args))}/gsc-performance?${new URLSearchParams({ range })}`;
+			return request(args, "GET", path);
 		}
 		case "sites:submit": {
 			const url = domainArg(args);

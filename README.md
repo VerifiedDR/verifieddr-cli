@@ -105,6 +105,7 @@ vdr categories:list                   # valid category values
 vdr keywords:research "best crm for startups"                  # DR the top 10 demands
 vdr keywords:research "best crm for startups" --domain example.com  # + your gap/verdict
 vdr keywords:suggest example.com      # winnable keywords the domain ranks 4-30 for
+vdr keywords:tracked example.com      # your saved keyword targets + stored snapshots
 
 # Your own sites (owner-scoped)
 vdr sites:list                        # list your sites + metrics
@@ -116,6 +117,8 @@ vdr sites:monitor --daily             # watch all your sites for changes
 vdr sites:monitor example.com         # watch one site
 vdr sites:submit https://example.com --title "Example" --category saas
 vdr sites:verify example.com          # re-check the badge embed
+vdr sites:gsc-performance example.com # 28d GSC totals, daily series + top dimensions
+vdr sites:gsc-performance example.com --range 3m # 28d, 3m, 6m, 12m, or 16m
 vdr sites:gsc-audit example.com       # latest Google index audit (needs GSC connected)
 vdr sites:gsc-audit example.com --run # run a fresh audit (12h cooldown)
 ```
@@ -138,6 +141,9 @@ vdr sites:gsc-audit example.com --run # run a fresh audit (12h cooldown)
   ranking site ("entry point"); pass `--domain` to get your gap and verdict.
   `keywords:suggest` works for any domain and returns keywords it already
   ranks 4-30 for, where authority is the likeliest blocker.
+  `keywords:tracked` is the exception: it lists your saved keyword targets
+  with their stored difficulty snapshots for one of your own sites. It reads
+  stored data only (no live SERP fetch), so it works on every plan.
 - **Owner-scoped** (`sites:*`): only your own claimed sites.
   `sites:truedr --detailed` returns the full signal breakdown for sites you own.
   `sites:disavow` prints a Google disavow-format candidate file only for severe

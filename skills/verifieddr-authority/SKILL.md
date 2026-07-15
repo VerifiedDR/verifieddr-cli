@@ -53,8 +53,9 @@ vdr opportunities verifieddr.com
 vdr map verifieddr.com
 ```
 
-Every command requires a `vdr_...` API key and spends one unit of the owner's
-plan quota. Free includes 10 calls/day, Pro includes 1,000 calls/month, and
+Every data command requires a `vdr_...` API key and spends one unit of the
+owner's plan quota (`help` and `--version` are local exceptions). Free includes
+10 calls/day, Pro includes 1,000 calls/month, and
 Agency includes 10,000 calls/month. Remaining quota and tier are printed to
 stderr. Coach commands print plain-English guidance; API commands print JSON on
 stdout with an `ok` boolean. If global installs are unavailable, run commands
@@ -99,17 +100,25 @@ Use API commands when the user needs raw data, scripting, or integrations:
 
 ```bash
 vdr authority:lookup <domain>        # authority for ANY approved site
-vdr map <domain>                     # terminal backlink map for any approved site
+vdr map <domain>                     # backlink map (`authority:map` also works)
 vdr map <domain> --json              # raw DR Map data
 vdr discover:find --category ai --min-truedr 50 --traffic-validated --limit 10
 vdr discover:find --opportunities-for example.com --limit 10
 vdr badge:snippets <domain>          # badge / embed snippets
+vdr categories:list                 # valid category filter values
 vdr keywords:research "<keyword>" [--domain <yours>]  # DR the Google top 10 demands
 vdr keywords:suggest <domain>        # winnable keywords a domain ranks 4-30 for
+vdr keywords:tracked <domain>        # your saved keyword targets + stored snapshots (own sites, free)
 vdr sites:list                       # list YOUR sites
+vdr sites:get <domain>               # one of YOUR sites with stored trends
+vdr sites:truedr <domain> [--detailed] # owner-only TrueDR signal breakdown
 vdr sites:monitor [<domain>] [--daily]   # watch YOUR sites for changes
 vdr sites:export <domain>            # machine-readable export of YOUR site
 vdr sites:disavow <domain>           # Google disavow candidates for severe spam risk
+vdr sites:gsc-performance <domain> [--range 28d] # owner-only GSC performance
+vdr sites:gsc-audit <domain> [--run] # latest index audit; --run starts a fresh audit
+vdr sites:submit <url> [--title ... --category ...] # add a site
+vdr sites:verify <domain>             # re-check its badge embed
 ```
 
 ## Growth Loop Prompts
@@ -161,12 +170,12 @@ copy.
 - `actions` / `fix` / `boost` when the user asks for prioritization or a growth
   plan.
 - `opportunities` when the user needs directories, backlink ideas, or partner
-  targets. Partner names are shown only on paid plans; free users see a limited
-  preview and must upgrade before outreach can start. Use
+  targets. Partner names are shown in full on every plan; the plan governs the
+  monthly contact limit. Use
   `--contact <slug-or-domain> --dry-run` to validate the target, quota, and exact
   payload for approval, then remove `--dry-run` only after the user approves the
-  listed target and copy. Custom outreach must be passed with `--subject` and/or
-  `--message`; it sends mail through VerifiedDR. If the CLI returns an
+  listed target and copy. Sending requires both `--subject` and `--message`;
+  it sends mail through VerifiedDR. If the CLI returns an
   `upgradeUrl`, include it in the next action.
 - `authority:lookup` when the user asks what VerifiedDR knows about a domain or
   needs JSON. Returns DR, TrueDR, trust score, confidence, traffic validation,
@@ -200,6 +209,13 @@ copy.
   Owner-scoped: only the API key owner's own claimed sites.
 - `sites:export` when output feeds another script, CI job, dashboard, or
   integration.
+- `sites:gsc-performance <domain>` for owner-scoped Search Console performance.
+  It returns totals and daily series for the selected range, the immediately
+  preceding period totals, and top queries, pages, countries, and devices. Use
+  `--range 28d`, `3m`, `6m`, `12m`, or `16m` (default `28d`).
+- `sites:gsc-audit <domain>` to read the latest owner-scoped Google index audit.
+  Add `--run` only when the user wants a fresh audit; it spends URL Inspection
+  budget and the server enforces a 12-hour cooldown.
 - `sites:disavow <domain>` only when owner-scoped data shows severe spam-link
   risk and the owner wants a Google disavow-format candidate file. It is
   cache-only, owner-scoped, supports `--min-spam <n>` (default 50),
@@ -215,8 +231,8 @@ hidden aliases, but prefer the `resource:action` forms above.
 
 ## Public vs. owner-scoped
 
-- **Public fields, any approved site:** `authority:lookup`, `discover:find`,
-  `badge:snippets`. Never expose owner identity, billing state, or the
+- **Public fields, any approved site:** `authority:lookup`, `map`,
+  `discover:find`, `badge:snippets`. Never expose owner identity, billing state, or the
   per-signal trust breakdown. That data is not returned by these commands, so
   do not claim to have it.
 - **Paid-plan gated, any keyword/domain:** `keywords:research`,
@@ -224,9 +240,10 @@ hidden aliases, but prefer the `resource:action` forms above.
   free keys get `402` with `upgradeUrl`, `requiredPlan`, and `blockedFeature`.
 - **Owner-scoped (key owner's own sites only):** `sites:list`, `sites:get`,
   `sites:truedr`, `sites:export`, `sites:disavow`, `sites:monitor`,
-  `sites:submit`, `sites:verify`. If the user asks to monitor, export, or
-  disavow a domain they do not
-  own, explain it returns 404 by design.
+  `sites:gsc-performance`, `sites:gsc-audit`, `sites:submit`, `sites:verify`.
+  GSC commands also require a connected Search Console property and an eligible
+  Search Console plan. If the user requests owner-scoped data for a domain they
+  do not own, explain that it returns 404 by design.
 
 ## Safety
 
