@@ -203,6 +203,9 @@ copy.
   estimated traffic value; brand/entity-name queries are filtered out. Feed
   the best ones into `keywords:research` to see the exact DR gap per keyword.
   Same Advanced/Ultra plan gate as `keywords:research`.
+  When the user wants to go from keyword research to an actual published
+  article, hand off to the sibling `seo-publish-pipeline` skill (shipped in
+  this repo under `skills/seo-publish-pipeline`) instead of drafting ad hoc.
 - `badge:snippets` only for badge/share/embed snippets.
 - `sites:list` to list the key owner's own sites with current metrics.
 - `sites:monitor` to watch changes, summarize deltas, or check trust alerts.
