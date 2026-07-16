@@ -10,6 +10,10 @@
  * Base:  VERIFIEDDR_API_BASE=https://verifieddr.com   (override for testing)
  */
 
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
+
 const DEFAULT_BASE = "https://verifieddr.com";
 const DEFAULT_UPGRADE_URL =
 	"https://verifieddr.com/pricing?source=cli&feature=api";
@@ -234,7 +238,8 @@ Coach commands:
   vdr diagnose <domain>                  Why TrueDR is lower than DR
   vdr actions <domain>                   Ranked actions by impact/effort/confidence
   vdr opportunities <domain>             Verified partners, directories, backlink ideas
-  vdr opportunities <domain> --contact <slug> Send drafted mail to a listed partner
+  vdr opportunities <domain> --contact <slug> --dry-run   Preview drafted mail to a partner
+  vdr opportunities <domain> --contact <slug> --approve   Send the previewed draft
   vdr audit backlinks <domain>           Backlink risk review
   vdr content-plan <domain>              Authority-supporting page plan
   vdr fix <domain> [--goal +10]          30/60/90-day TrueDR growth plan
@@ -289,7 +294,9 @@ discover:find filters:
 
 opportunities filters:
   --type <all|partners|directories|backlinks>  --category <slug>  --min-truedr <n>
-  --contact <slug|domain>  --subject <text>  --message <text>  --dry-run
+  --limit <n> (max 25)  --json
+  --contact <slug|domain>  --dry-run (preview + store draft)
+  --approve (send stored draft)  --subject <text>  --message <text>
 
 disavow filters:
   --min-spam <n> (default 50)  --include-lost  --limit <n>  --json
@@ -385,6 +392,73 @@ type OpportunityCandidate = Lookup & {
 		fitReasons?: string[];
 	};
 };
+
+/**
+ * Local, best-effort CLI state: outreach drafts awaiting approval and a log of
+ * sent partnership contacts. Lives in ~/.verifieddr/state.json. Every reader
+ * and writer swallows errors so state can never break a command; losing it
+ * only means a draft has to be previewed again.
+ */
+const STATE_DIR =
+	process.env.VERIFIEDDR_STATE_DIR || join(homedir(), ".verifieddr");
+const STATE_FILE = join(STATE_DIR, "state.json");
+
+type SavedDraft = { subject: string; message: string; savedAt: string };
+type SentContact = {
+	domain: string;
+	target: string;
+	to?: string;
+	subject?: string;
+	sentAt: string;
+};
+type CliState = {
+	drafts?: Record<string, SavedDraft>;
+	contacted?: SentContact[];
+};
+
+function readState(): CliState {
+	try {
+		const state = JSON.parse(readFileSync(STATE_FILE, "utf8"));
+		return state && typeof state === "object" ? (state as CliState) : {};
+	} catch {
+		return {};
+	}
+}
+
+function writeState(state: CliState): void {
+	try {
+		mkdirSync(STATE_DIR, { recursive: true });
+		writeFileSync(STATE_FILE, `${JSON.stringify(state, null, 2)}\n`);
+	} catch {
+		// Best-effort only.
+	}
+}
+
+function draftKey(domain: string, target: string): string {
+	return `${domain.trim().toLowerCase()}|${target.trim().toLowerCase()}`;
+}
+
+function contactedEntry(
+	state: CliState,
+	domain: string,
+	candidate: OpportunityCandidate | string,
+): SentContact | undefined {
+	const refs =
+		typeof candidate === "string"
+			? [candidate]
+			: [candidate.slug, candidate.domain];
+	const wanted = new Set(
+		refs
+			.filter((ref): ref is string => Boolean(ref))
+			.map((ref) => ref.trim().toLowerCase()),
+	);
+	const own = domain.trim().toLowerCase();
+	return state.contacted?.find(
+		(entry) =>
+			entry.domain === own &&
+			(wanted.has(entry.target) || (entry.to != null && wanted.has(entry.to))),
+	);
+}
 
 type ReferringDomain = {
 	id?: string;
@@ -785,57 +859,119 @@ function candidateLabel(
 	return `${name}${domain}: ${metric}`;
 }
 
+async function fetchOpportunityCandidates(
+	args: string[],
+	domain: string,
+	params: Record<string, string>,
+): Promise<OpportunityCandidate[]> {
+	const q = new URLSearchParams({ opportunitiesFor: domain, ...params });
+	const result = await requestResult(
+		args,
+		"GET",
+		`/api/v1/find?${q.toString()}`,
+		undefined,
+		true,
+		false,
+		true,
+	);
+	const sites =
+		(result.data.opportunities as { candidates?: unknown[] } | undefined)
+			?.candidates ?? [];
+	return sites.filter((site): site is OpportunityCandidate =>
+		Boolean(site && typeof site === "object"),
+	);
+}
+
+function candidateLimit(args: string[]): number {
+	const raw = Number(option(args, "--limit") || "5");
+	if (!Number.isFinite(raw)) return 5;
+	return Math.max(1, Math.min(25, Math.round(raw)));
+}
+
+/** Null means the fetch failed; an empty array means no matches. */
 async function partnershipCandidates(
 	lookup: Lookup,
 	args: string[],
-): Promise<OpportunityCandidate[]> {
-	const q = new URLSearchParams();
-	q.set("opportunitiesFor", lookup.domain || commandDomainArg(args));
-	q.set("trafficValidated", "true");
-	q.set("limit", "5");
-	const minTrueDr = option(args, "--min-truedr") || "20";
-	q.set("minTrueDr", minTrueDr);
+): Promise<OpportunityCandidate[] | null> {
+	const limit = candidateLimit(args);
+	const params: Record<string, string> = {
+		trafficValidated: "true",
+		limit: String(limit),
+		minTrueDr: option(args, "--min-truedr") || "20",
+	};
 	const category = option(args, "--category");
-	if (category) q.set("category", category);
+	if (category) params.category = category;
 	try {
-		const result = await requestResult(
+		const sites = await fetchOpportunityCandidates(
 			args,
-			"GET",
-			`/api/v1/find?${q.toString()}`,
-			undefined,
-			true,
-			false,
-			true,
+			lookup.domain || commandDomainArg(args),
+			params,
 		);
-		const sites =
-			(result.data.opportunities as { candidates?: unknown[] } | undefined)
-				?.candidates ?? [];
-		return sites
-			.filter((site): site is OpportunityCandidate =>
-				Boolean(site && typeof site === "object"),
-			)
-			.slice(0, 5);
+		return sites.slice(0, limit);
 	} catch {
 		process.stderr.write(
 			"partnership candidates unavailable; showing base opportunities\n",
 		);
-		return [];
+		return null;
+	}
+}
+
+/**
+ * Best-effort candidate lookup for a contact target, so drafted outreach can
+ * cite the actual matched angle. Deliberately unfiltered: contact accepts any
+ * discoverable candidate, so the draft lookup must too.
+ */
+async function findContactCandidate(
+	args: string[],
+	domain: string,
+	target: string,
+): Promise<OpportunityCandidate | null> {
+	try {
+		const sites = await fetchOpportunityCandidates(args, domain, {
+			limit: "25",
+			minTrueDr: "0",
+		});
+		const want = target.trim().toLowerCase();
+		return (
+			sites.find(
+				(site) =>
+					site.slug?.trim().toLowerCase() === want ||
+					site.domain?.trim().toLowerCase() === want,
+			) ?? null
+		);
+	} catch {
+		return null;
 	}
 }
 
 function draftOutreach(
 	domain: string,
 	target: string,
+	candidate?: OpportunityCandidate | null,
 ): { subject: string; message: string } {
-	const targetName = target
+	const fallbackName = target
 		.replace(/[-_]+/g, " ")
 		.replace(/\s+(com|io|dev|me|best|net|org|co|app|ai)$/i, "")
 		.trim();
+	const targetName = candidate?.title || candidate?.domain || fallbackName;
+	const reasons = [
+		candidate?.opportunity?.reason,
+		...(candidate?.opportunity?.fitReasons ?? []),
+	]
+		.filter((reason): reason is string => Boolean(reason?.trim()))
+		.slice(0, 2);
+	const fit =
+		reasons.length > 0
+			? `I found ${targetName} through VerifiedDR's partner matching: ${reasons.join("; ").replace(/[.\s]+$/, "")}.`
+			: "VerifiedDR matched our sites as a partnership fit based on category and authority overlap.";
+	const angle = candidate?.opportunity?.type?.trim().toLowerCase();
+	const proposal =
+		angle && angle !== "partnership"
+			? `I'd like to explore ${/^[aeiou]/.test(angle) ? "an" : "a"} ${angle} between ${targetName} and ${domain} — or a mutual mention or content collaboration, whatever fits best on your side.`
+			: "I'd like to explore a co-marketing swap: a mutual mention, a content collaboration, or an integration, whatever fits best on your side.";
 	return {
 		subject: `Partnership idea: ${domain} x ${targetName}`,
-		message:
-			`Hi, I run ${domain}. VerifiedDR matched our sites as a partnership fit based on category and authority overlap. ` +
-			"I'd like to explore a co-marketing swap: a mutual mention, a content collaboration, or an integration, whatever fits best on your side. Open to ideas.",
+		message: `Hi, I run ${domain}. ${fit} ${proposal} Open to ideas.`,
 	};
 }
 
@@ -848,20 +984,35 @@ async function contactPartnershipOpportunity(args: string[]): Promise<void> {
 	if (!target) fail("--contact requires a listed opportunity slug or domain.", 2);
 	const domain = commandDomainArg(args);
 	const dryRun = flag(args, "--dry-run");
+	const approve = flag(args, "--approve") && !dryRun;
+	const json = flag(args, "--json");
 	let subject = option(args, "--subject");
 	let message = option(args, "--message");
-	// A dry run previews drafted copy; the actual send always requires the
-	// caller to pass the approved subject and message explicitly.
+	// A dry run previews drafted copy and stores it locally; the actual send
+	// requires either --approve (send the stored draft unchanged) or the
+	// approved subject and message passed back explicitly.
 	let drafted = false;
+	if (approve && (!subject || !message)) {
+		const saved = readState().drafts?.[draftKey(domain, target)];
+		if (!saved) {
+			fail(
+				`No stored draft for ${target}. Preview one first with:\n  vdr opportunities ${domain} --contact ${target} --dry-run`,
+				2,
+			);
+		}
+		subject = subject || saved.subject;
+		message = message || saved.message;
+	}
 	if (dryRun && (!subject || !message)) {
-		const draft = draftOutreach(domain, target);
+		const candidate = await findContactCandidate(args, domain, target);
+		const draft = draftOutreach(domain, target, candidate);
 		subject = subject || draft.subject;
 		message = message || draft.message;
 		drafted = true;
 	}
 	if (!subject || !message) {
 		fail(
-			`Outreach copy is required to send. Preview a draft first with:\n  vdr opportunities ${domain} --contact ${target} --dry-run\nthen approve it by passing --subject and --message on the send.`,
+			`Outreach copy is required to send. Preview a draft first with:\n  vdr opportunities ${domain} --contact ${target} --dry-run\nthen send it unchanged with --approve, or pass edited --subject and --message on the send.`,
 			2,
 		);
 	}
@@ -899,6 +1050,29 @@ async function contactPartnershipOpportunity(args: string[]): Promise<void> {
 	if (contact?.dryRun) {
 		const previewSubject = contact.subject ?? subject;
 		const previewMessage = contact.message ?? message;
+		const state = readState();
+		state.drafts = {
+			...state.drafts,
+			[draftKey(domain, target)]: {
+				subject: previewSubject ?? "",
+				message: previewMessage ?? "",
+				savedAt: new Date().toISOString(),
+			},
+		};
+		writeState(state);
+		const approveCommand = `vdr opportunities ${domain} --contact ${target} --approve`;
+		if (json) {
+			out({
+				ok: true,
+				dryRun: true,
+				to: label,
+				subject: previewSubject ?? null,
+				message: previewMessage ?? null,
+				quota: quota ?? null,
+				send: approveCommand,
+			});
+			return;
+		}
 		printLines([
 			`Dry run: partnership email to ${label}.`,
 			drafted
@@ -909,9 +1083,34 @@ async function contactPartnershipOpportunity(args: string[]): Promise<void> {
 			quota
 				? `Partnership contacts: ${quota.used ?? "?"}/${quota.limit ?? "unlimited"} used (${quota.plan ?? "plan"})`
 				: null,
-			"Nothing was sent. Send after approval with:",
+			"Nothing was sent. Send this exact draft with:",
+			`  ${approveCommand}`,
+			"Or edit it on the send:",
 			`  vdr opportunities ${domain} --contact ${target} --subject ${shellQuote(previewSubject ?? "")} --message ${shellQuote(previewMessage ?? "")}`,
 		]);
+		return;
+	}
+	const state = readState();
+	state.contacted = [
+		...(state.contacted ?? []),
+		{
+			domain: domain.trim().toLowerCase(),
+			target: target.trim().toLowerCase(),
+			...(to?.domain ? { to: to.domain.trim().toLowerCase() } : {}),
+			subject: contact?.subject ?? subject,
+			sentAt: new Date().toISOString(),
+		},
+	];
+	if (state.drafts) delete state.drafts[draftKey(domain, target)];
+	writeState(state);
+	if (json) {
+		out({
+			ok: true,
+			sent: true,
+			to: label,
+			subject: contact?.subject ?? subject ?? null,
+			quota: quota ?? null,
+		});
 		return;
 	}
 	printLines([
@@ -935,10 +1134,15 @@ async function coachOpportunities(
 	const trust = num(lookup.authority?.trustScore);
 	const referringDomains = num(lookup.evidence?.referringDomains);
 	const topBacklinks = lookup.evidence?.topBacklinks ?? [];
-	const candidates =
-		type === "all" || type === "partners"
-			? await partnershipCandidates(lookup, args)
-			: [];
+	const wantPartners = type === "all" || type === "partners";
+	// Null means the candidate fetch failed; [] means no matches at the
+	// current filters, which gets its own retry guidance below.
+	const candidates = wantPartners
+		? await partnershipCandidates(lookup, args)
+		: null;
+	const state = readState();
+	const contactedOn = (site: OpportunityCandidate): string | null =>
+		contactedEntry(state, domain, site)?.sentAt?.slice(0, 10) ?? null;
 	const opportunities = [
 		type === "all" || type === "directories"
 			? `Relevant directories: ${
@@ -962,24 +1166,60 @@ async function coachOpportunities(
 				}`
 			: null,
 	].filter((line): line is string => Boolean(line));
+	if (flag(args, "--json")) {
+		out({
+			ok: true,
+			domain,
+			type,
+			suggestions: opportunities,
+			candidates: (candidates ?? []).map((site) => ({
+				domain: site.domain ?? null,
+				slug: site.slug ?? null,
+				title: site.title ?? null,
+				trueDr: num(site.authority?.trueDr),
+				dr: num(site.authority?.dr),
+				traffic: num(site.evidence?.traffic),
+				opportunity: site.opportunity ?? null,
+				contactedAt: contactedOn(site),
+			})),
+		});
+		return;
+	}
+	const minTrueDr = option(args, "--min-truedr") || "20";
+	const noMatches = wantPartners && candidates != null && candidates.length === 0;
 	const lines = [
 		`Opportunities for ${domain}:`,
 		"",
 		...opportunities.map((line, index) => `${index + 1}. ${line}`),
-		candidates.length > 0 ? "" : null,
-		candidates.length > 0
+		candidates != null && candidates.length > 0 ? "" : null,
+		candidates != null && candidates.length > 0
 			? "Potential partnerships:"
 			: null,
-		...candidates.map(
-			(site, index) => `${index + 1}. ${candidateLabel(site, index)}${
-				site.opportunity?.reason
-					? `
+		...(candidates ?? []).map((site, index) => {
+			const ref = site.slug || site.domain || "";
+			const sentOn = contactedOn(site);
+			const angle = site.opportunity?.reason
+				? `
    Angle: ${site.opportunity.type || "Partnership"} - ${site.opportunity.reason}`
-					: ""
-			}
-   Preview drafted mail: vdr opportunities ${domain} --contact ${site.slug || site.domain || ""} --dry-run
-   Send after approval: vdr opportunities ${domain} --contact ${site.slug || site.domain || ""}`,
-		),
+				: "";
+			const contactLines = sentOn
+				? `
+   Already contacted on ${sentOn}. Re-preview: vdr opportunities ${domain} --contact ${ref} --dry-run`
+				: `
+   Preview drafted mail: vdr opportunities ${domain} --contact ${ref} --dry-run
+   Send the preview: vdr opportunities ${domain} --contact ${ref} --approve`;
+			return `${index + 1}. ${candidateLabel(site, index)}${angle}${contactLines}`;
+		}),
+		noMatches ? "" : null,
+		noMatches
+			? `No partner matches with TrueDR >= ${minTrueDr} and validated traffic yet.`
+			: null,
+		noMatches
+			? `Retry with a lower bar: vdr opportunities ${domain} --min-truedr 10`
+			: null,
+		noMatches
+			? `Or narrow by niche: vdr opportunities ${domain} --category <slug> (list: vdr categories:list)`
+			: null,
 		"",
 		"Next:",
 		`Run: vdr actions ${domain}`,
@@ -1133,9 +1373,15 @@ async function coachNext(
 	const action = coachActions(lookup)[0];
 	const domain = lookup.domain || commandDomainArg(args);
 	const partnerCandidates = action?.run.startsWith("vdr opportunities ")
-		? await partnershipCandidates(lookup, args)
+		? ((await partnershipCandidates(lookup, args)) ?? [])
 		: [];
-	const partner = partnerCandidates[0];
+	const state = readState();
+	// Prefer a partner that has not been contacted yet; a repeated suggestion
+	// reads as stale, and there is usually a fresh candidate right behind it.
+	const partner =
+		partnerCandidates.find(
+			(site) => !contactedEntry(state, domain, site),
+		) ?? partnerCandidates[0];
 	const partnerRef = partner ? partner.slug || partner.domain || "" : "";
 	printLines([
 		`Best next action for ${domain}:`,
@@ -1154,7 +1400,7 @@ async function coachNext(
 			? `Preview before sending: vdr opportunities ${domain} --contact ${partnerRef} --dry-run`
 			: null,
 		partnerRef
-			? `Approve + send: vdr opportunities ${domain} --contact ${partnerRef}`
+			? `Send the preview: vdr opportunities ${domain} --contact ${partnerRef} --approve`
 			: null,
 	]);
 }

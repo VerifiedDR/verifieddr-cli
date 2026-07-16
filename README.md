@@ -55,8 +55,8 @@ vdr analyze example.com              # score, main issue, top 3 actions
 vdr diagnose example.com             # why TrueDR is lower than DR
 vdr actions example.com              # ranked by impact, effort, confidence
 vdr opportunities example.com        # verified partners, directories, backlink ideas
-vdr opportunities example.com --contact partner-slug  # send drafted mail to a listed partner
-vdr opportunities example.com --contact partner-slug --dry-run  # preview contact payload
+vdr opportunities example.com --contact partner-slug --dry-run  # preview drafted mail
+vdr opportunities example.com --contact partner-slug --approve  # send the previewed draft
 vdr audit backlinks example.com      # backlink risk review
 vdr content-plan example.com         # authority-supporting page plan
 vdr fix example.com --goal +10       # 30/60/90-day growth plan
@@ -72,8 +72,13 @@ opportunities` shows potential partnership candidates, the suggested outreach
 angle, and the exact command to approve before sending. Partner names are shown
 in full on every plan; only the monthly contact limit is plan-governed. Partner
 matching uses the lookup and opportunities APIs, so listing can spend two quota
-calls; a `--contact` call spends one. `--dry-run` previews drafted outreach
-copy, and sending requires explicit `--subject` and `--message`.
+calls; a `--contact` call spends one. `--dry-run` drafts outreach copy that
+cites the matched angle, previews it, and stores it locally in
+`~/.verifieddr/state.json`. Sending requires either `--approve` (send the
+stored draft unchanged) or explicit `--subject` and `--message` for edited
+copy. Sent contacts are logged locally, so candidate lists mark partners you
+already reached out to and `vdr next` prefers a fresh one. Add `--json` to
+`opportunities` or a contact call for machine-readable output.
 
 Pro and Agency users can contact a listed partner without seeing the owner's
 email address. Use `--dry-run` first to validate the target, quota, and message
@@ -81,6 +86,7 @@ before sending:
 
 ```bash
 vdr opportunities example.com --contact partner-slug --dry-run
+vdr opportunities example.com --contact partner-slug --approve
 vdr opportunities example.com --contact partner-slug --message "Custom outreach copy..."
 ```
 
