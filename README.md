@@ -191,12 +191,17 @@ vdr authority:lookup stripe.com | jq '.lookup.authority'
 
 ## 5 Actionable SEO Outcomes
 
-This repo ships an agent **skill**:
+This repo ships two agent **skills**:
 
 - [`skills/verifieddr-authority`](skills/verifieddr-authority/SKILL.md) teaches
   assistants when and how to call these commands.
+- [`skills/seo-publish-pipeline`](skills/seo-publish-pipeline/SKILL.md) is a
+  gated agentic workflow for writing and publishing SEO articles: keyword
+  backlog built from `vdr` keyword research, intent classification, product
+  claim validation, fixed article structure, two anti-slop passes, and a
+  scoring threshold before anything ships.
 
-Install it straight into your agent with:
+Install them straight into your agent with:
 
 ```bash
 npx skills add VerifiedDR/verifieddr-cli
@@ -217,6 +222,9 @@ commands:
    issue.
 5. **Monitor Metrics:** set a recurring authority check for DR, TrueDR, traffic
    validation, backlink deltas, and trust alerts.
+6. **Publish an SEO Article:** run the gated publish pipeline — pick a keyword
+   from the research-built backlog, validate every product claim, draft, run
+   anti-slop passes, and publish only above the quality threshold.
 
 Example prompts:
 
@@ -250,6 +258,15 @@ Find one partner opportunity for example.com and draft the outreach.
 Use VerifiedDR opportunities, run the contact command with --dry-run so I can
 approve the exact subject/message, then send only after I approve the target and
 copy.
+```
+
+```text
+Run the SEO publish pipeline for example.com.
+Build the keyword backlog from vdr keyword research if it is empty, take the
+oldest pending keyword, and write the article through every gate: intent
+classification, product claim validation, the fixed structure, both anti-slop
+passes, and the quality score. Stop and report instead of publishing anything
+below the threshold.
 ```
 
 ## License
