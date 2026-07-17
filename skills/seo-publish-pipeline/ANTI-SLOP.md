@@ -21,6 +21,16 @@ Remove or rewrite:
 - **Unsupported claims**: superlatives and statistics with no source. Either
   cite it, downgrade it ("many" -> the actual number, or cut), or delete it.
   Product claims: re-check against `product.md` in the project root.
+- **Internal vendor names**: never expose upstream data providers or internal
+  APIs (DataForSEO, Ahrefs, RapidAPI, or similar) in published copy. Replace
+  with "live backlink data", "real backlink evidence", or "third-party
+  traffic estimates".
+- **Manufactured urgency**: fake deadlines, scarcity, countdown language,
+  unspecified losses, and consequences the draft does not prove. Replace with
+  a real cost of delay plus a concrete next action, or keep the wording calm.
+- **Inflated transformation**: testimonials or before/after claims that add
+  causation, certainty, scale, or savings absent from the documented source.
+  Restore the source's exact meaning or remove the claim.
 
 ## Pass 2: subtle signals
 
@@ -40,6 +50,9 @@ Remove or rewrite:
   everything. Two or four, or just the one that's true.
 - **Hedging stacks**: "can potentially help to" -> "helps" (if true per
   product facts) or cut.
+- **Pressure on repeat**: more than one urgency or contrast beat in a section.
+  Keep the strongest evidence-led version; rewrite the rest as useful detail.
 
 Exit check for both passes: read the intro and one random middle section
-aloud. Anything you wouldn't say to a colleague gets rewritten.
+aloud. Anything you wouldn't say to a colleague gets rewritten. Then run the
+urgency exit check in `VOICE.md`.

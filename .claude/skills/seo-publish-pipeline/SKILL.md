@@ -56,8 +56,13 @@ an existing 4-30 ranking. Record keyword, source command, DR gap, date, status
 3. **Product validation setup** - read `product.md` in the project root. Every claim
    about the product in the draft must trace to the "exists" list. Anything on
    the "does not exist" list, or on neither list, may not be claimed.
+   Never name internal data vendors or upstream APIs (DataForSEO, Ahrefs,
+   RapidAPI, or any other provider) in published copy, even if `product.md`
+   mentions them internally. Say "live backlink data", "real backlink
+   evidence", or "third-party traffic estimates" instead.
 
-4. **Draft** - follow [STRUCTURE.md](STRUCTURE.md) exactly: keyword title,
+4. **Draft** - follow [STRUCTURE.md](STRUCTURE.md) exactly and apply the
+   evidence-led urgency rules in [VOICE.md](VOICE.md): keyword title,
    short answer up top, longer AI-engine answer block, clear sections, FAQ,
    internal links (from the site's real sitemap/pages only), product section,
    CTA.
