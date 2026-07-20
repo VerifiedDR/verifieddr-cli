@@ -125,6 +125,8 @@ function apiKey(args: string[]): string | undefined {
 }
 
 const VALUE_FLAGS = new Set([
+	"--add",
+	"--add-prompt",
 	"--base",
 	"--category",
 	"--contact",
@@ -141,6 +143,9 @@ const VALUE_FLAGS = new Set([
 	"--min-truedr",
 	"--opportunities-for",
 	"--range",
+	"--refresh",
+	"--remove",
+	"--remove-prompt",
 	"--subject",
 	"--title",
 	"--type",
@@ -182,7 +187,7 @@ const GSC_AUDIT_RUN_TIMEOUT_MS = 180000;
 
 async function request(
 	args: string[],
-	method: "GET" | "POST",
+	method: "GET" | "POST" | "DELETE",
 	path: string,
 	body?: Json,
 	requireKey = true,
@@ -193,7 +198,7 @@ async function request(
 
 async function requestData(
 	args: string[],
-	method: "GET" | "POST",
+	method: "GET" | "POST" | "DELETE",
 	path: string,
 	body?: Json,
 	requireKey = true,
@@ -215,7 +220,7 @@ async function requestData(
 
 async function requestResult(
 	args: string[],
-	method: "GET" | "POST",
+	method: "GET" | "POST" | "DELETE",
 	path: string,
 	body?: Json,
 	requireKey = true,
@@ -323,6 +328,12 @@ Keyword research (Advanced/Ultra plans):
   vdr keywords:tracked <domain>          Your saved keyword targets with stored
                                          difficulty snapshots (own sites; free,
                                          reads stored data only)
+  vdr keywords:tracked <domain> --add "<keyword>"
+                                         Track a new keyword (snapshots its SERP)
+  vdr keywords:tracked <domain> --refresh <id>
+                                         Re-snapshot one saved keyword
+  vdr keywords:tracked <domain> --remove <id>
+                                         Stop tracking a keyword
 
 Your own sites (owner-scoped):
   vdr sites:list                         List your sites + metrics
@@ -331,6 +342,13 @@ Your own sites (owner-scoped):
   vdr sites:visibility <domain>          AI Visibility: how often ChatGPT,
                                          Perplexity, and Google AI Mode mention
                                          your site (stored snapshot + history)
+  vdr sites:visibility <domain> --add-prompt "<question>"
+                                         Track a new AI question (next refresh
+                                         picks it up; Pro/Ultra)
+  vdr sites:visibility <domain> --remove-prompt <id>
+                                         Stop tracking a question
+  vdr sites:visibility <domain> --reset-prompts
+                                         Reseed questions from your keywords
   vdr sites:export <domain>              Machine-readable export of your site
   vdr sites:disavow <domain>             Google disavow candidates for severe spam risk
   vdr sites:monitor [<domain>] [--daily] Watch changes + trust alerts
@@ -1693,12 +1711,29 @@ async function main(): Promise<void> {
 				`/api/v1/sites/${encode(domainArg(args))}/truedr${detailed}`,
 			);
 		}
-		case "sites:visibility":
-			return request(
-				args,
-				"GET",
-				`/api/v1/sites/${encode(domainArg(args))}/ai-visibility`,
-			);
+		case "sites:visibility": {
+			const domain = encode(domainArg(args));
+			const addPrompt = option(args, "--add-prompt");
+			if (addPrompt) {
+				return request(args, "POST", `/api/v1/sites/${domain}/ai-visibility`, {
+					prompt: addPrompt,
+				});
+			}
+			const removePrompt = option(args, "--remove-prompt");
+			if (removePrompt) {
+				return request(
+					args,
+					"DELETE",
+					`/api/v1/sites/${domain}/ai-visibility?promptId=${encodeURIComponent(removePrompt)}`,
+				);
+			}
+			if (flag(args, "--reset-prompts")) {
+				return request(args, "POST", `/api/v1/sites/${domain}/ai-visibility`, {
+					action: "reset",
+				});
+			}
+			return request(args, "GET", `/api/v1/sites/${domain}/ai-visibility`);
+		}
 		case "keywords:research": {
 			const keyword = positionalArgs(args)[0];
 			if (!keyword) {
@@ -1715,12 +1750,31 @@ async function main(): Promise<void> {
 				"GET",
 				`/api/v1/keywords/suggestions/${encode(domainArg(args))}`,
 			);
-		case "keywords:tracked":
-			return request(
-				args,
-				"GET",
-				`/api/v1/sites/${encode(domainArg(args))}/keywords`,
-			);
+		case "keywords:tracked": {
+			const domain = encode(domainArg(args));
+			const addKeyword = option(args, "--add");
+			if (addKeyword) {
+				return request(args, "POST", `/api/v1/sites/${domain}/keywords`, {
+					keyword: addKeyword,
+				});
+			}
+			const refreshId = option(args, "--refresh");
+			if (refreshId) {
+				return request(args, "POST", `/api/v1/sites/${domain}/keywords`, {
+					action: "refresh",
+					id: refreshId,
+				});
+			}
+			const removeId = option(args, "--remove");
+			if (removeId) {
+				return request(
+					args,
+					"DELETE",
+					`/api/v1/sites/${domain}/keywords?id=${encodeURIComponent(removeId)}`,
+				);
+			}
+			return request(args, "GET", `/api/v1/sites/${domain}/keywords`);
+		}
 		case "discover:find": {
 			const q = new URLSearchParams();
 			const category = option(args, "--category");

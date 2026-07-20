@@ -112,10 +112,16 @@ vdr categories:list                 # valid category filter values
 vdr keywords:research "<keyword>" [--domain <yours>]  # DR the Google top 10 demands
 vdr keywords:suggest <domain>        # winnable keywords a domain ranks 4-30 for
 vdr keywords:tracked <domain>        # your saved keyword targets + stored snapshots (own sites, free)
+vdr keywords:tracked <domain> --add "<keyword>"   # track a new keyword
+vdr keywords:tracked <domain> --refresh <id>      # re-snapshot one saved keyword
+vdr keywords:tracked <domain> --remove <id>       # stop tracking a keyword
 vdr sites:list                       # list YOUR sites
 vdr sites:get <domain>               # one of YOUR sites with stored trends
 vdr sites:truedr <domain> [--detailed] # owner-only TrueDR signal breakdown
 vdr sites:visibility <domain>        # owner-only AI Visibility snapshot (ChatGPT/Perplexity/Google AI Mode)
+vdr sites:visibility <domain> --add-prompt "<question>"  # track a new AI question (Pro/Ultra)
+vdr sites:visibility <domain> --remove-prompt <id>       # stop tracking a question
+vdr sites:visibility <domain> --reset-prompts            # reseed questions from keywords
 vdr sites:monitor [<domain>] [--daily]   # watch YOUR sites for changes
 vdr sites:export <domain>            # machine-readable export of YOUR site
 vdr sites:disavow <domain>           # Google disavow candidates for severe spam risk
@@ -208,6 +214,13 @@ copy.
   estimated traffic value; brand/entity-name queries are filtered out. Feed
   the best ones into `keywords:research` to see the exact DR gap per keyword.
   Same Advanced/Ultra plan gate as `keywords:research`.
+- `keywords:tracked <domain>` to list the key owner's saved keyword targets
+  with stored snapshots (free, reads stored data only), and to edit the list:
+  `--add "<keyword>"` tracks a new keyword (a SERP-cache miss pays an
+  upstream fetch and rides the stricter keyword limiter), `--refresh <id>`
+  re-snapshots a saved one, `--remove <id>` deletes it. Ids come from the
+  plain listing. Same contract as the dashboard Keywords tab, so agent edits
+  and UI edits stay in sync.
   When the user wants to go from keyword research to an actual published
   article, hand off to the sibling `seo-publish-pipeline` skill (shipped in
   this repo under `skills/seo-publish-pipeline`) instead of drafting ad hoc.
@@ -241,7 +254,15 @@ copy.
   mentioned, cited pages worth outreach (with DR/TrueDR when indexed), and run
   history. Reads stored runs only and never triggers a vendor run; if no run
   exists yet, tell the user to start the first one from the site's AI
-  Visibility tab in the dashboard.
+  Visibility tab in the dashboard. Edit the tracked questions in place —
+  `--add-prompt "<question>"` (8-140 chars, must not name the user's own
+  site), `--remove-prompt <id>` (ids from the snapshot's `prompts` list), and
+  `--reset-prompts` to reseed from tracked keywords. Question editing is
+  Pro/Ultra and never spends a vendor run; the next scheduled refresh asks
+  the new questions. When a user wants their AI Visibility questions steered
+  toward a different positioning (for example "ai visibility tool" instead of
+  auto-seeded keywords), remove the off-target prompts and add on-target ones
+  instead of resetting.
 - `sites:submit` / `sites:verify` to list a new site or re-check its badge embed.
 
 The pre-`0.2` verbs (`lookup`, `find`, `sites`, `monitor`, ...) still work as

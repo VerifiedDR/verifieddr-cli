@@ -112,12 +112,18 @@ vdr keywords:research "best crm for startups"                  # DR the top 10 d
 vdr keywords:research "best crm for startups" --domain example.com  # + your gap/verdict
 vdr keywords:suggest example.com      # winnable keywords the domain ranks 4-30 for
 vdr keywords:tracked example.com      # your saved keyword targets + stored snapshots
+vdr keywords:tracked example.com --add "best crm for startups"  # track a new keyword
+vdr keywords:tracked example.com --refresh <id>  # re-snapshot one saved keyword
+vdr keywords:tracked example.com --remove <id>   # stop tracking a keyword
 
 # Your own sites (owner-scoped)
 vdr sites:list                        # list your sites + metrics
 vdr sites:get example.com             # one site with DR/traffic trends
 vdr sites:truedr example.com --detailed   # TrueDR + full signal breakdown
 vdr sites:visibility example.com      # AI Visibility: ChatGPT/Perplexity/Google AI Mode mentions
+vdr sites:visibility example.com --add-prompt "best ai visibility tools"  # track a new question
+vdr sites:visibility example.com --remove-prompt <id>  # stop tracking a question
+vdr sites:visibility example.com --reset-prompts       # reseed questions from your keywords
 vdr sites:export example.com          # machine-readable export
 vdr sites:disavow example.com         # Google disavow candidates for severe spam risk
 vdr sites:monitor --daily             # watch all your sites for changes
@@ -162,7 +168,12 @@ public request-indexing API for regular pages; for Google, keep your sitemap
   ranks 4-30 for, where authority is the likeliest blocker.
   `keywords:tracked` is the exception: it lists your saved keyword targets
   with their stored difficulty snapshots for one of your own sites. It reads
-  stored data only (no live SERP fetch), so it works on every plan.
+  stored data only (no live SERP fetch), so it works on every plan. It also
+  edits the list, same contract as the dashboard Keywords tab: `--add
+  "<keyword>"` tracks a new keyword (a SERP-cache miss pays an upstream fetch
+  and rides the stricter keyword limiter), `--refresh <id>` re-snapshots a
+  saved one, and `--remove <id>` deletes it. Ids come from the plain
+  `keywords:tracked` listing.
 - **Owner-scoped** (`sites:*`): only your own claimed sites.
   `sites:truedr --detailed` returns the full signal breakdown for sites you own.
   `sites:visibility` returns the stored AI Visibility snapshot for a site you
@@ -171,6 +182,13 @@ public request-indexing API for regular pages; for Google, keep your sitemap
   the run history. It reads stored runs only (the hourly cron and the
   dashboard refresh them), so it never spends a vendor run; free accounts see
   their one baseline run once it has been started from the dashboard.
+  It also edits the tracked questions, same contract as the dashboard editor:
+  `--add-prompt "<question>"` tracks a new question (8-140 chars, must not
+  name your own site), `--remove-prompt <id>` deletes one, and
+  `--reset-prompts` reseeds the list from your tracked keywords. Question
+  editing is Pro/Ultra; edits never trigger a vendor run — the next scheduled
+  refresh picks the new list up. Prompt ids come from the snapshot's
+  `prompts` list.
   `sites:disavow` prints a Google disavow-format candidate file only for severe
   spam-link risk found in cached evidence; use `--min-spam`, `--include-lost`,
   `--limit`, or `--json` to tune/review it. It never submits anything to Google

@@ -241,10 +241,74 @@ The saved keyword targets from the dashboard Keywords tab for one of the
 key owner's sites, with the stored difficulty snapshot per keyword and, when
 the site has a connected Search Console property, 28-day impressions and
 position. A pure read of stored data on every plan: it never triggers a live
-SERP fetch, so there is no plan gate (refreshing snapshots stays a dashboard
-Pro/Ultra action). `quota` reports the free plan's monthly check allowance;
-paid plans get `"limit": null`. Use this before `keywords:research` to avoid
-re-paying for keywords that already have a fresh snapshot.
+SERP fetch, so there is no plan gate. `quota` reports the free plan's monthly
+check allowance; paid plans get `"limit": null`. Use this before
+`keywords:research` to avoid re-paying for keywords that already have a fresh
+snapshot.
+
+Each keyword row also carries an `id`. The same command edits the list, same
+contract as the dashboard Keywords tab:
+
+```bash
+vdr keywords:tracked example.com --add "crm for solo founders"
+# POST /api/v1/sites/example.com/keywords  { "keyword": "..." }
+# -> { "ok": true, "target": { ... } }  (201)
+
+vdr keywords:tracked example.com --refresh tgt_123
+# POST /api/v1/sites/example.com/keywords  { "action": "refresh", "id": "tgt_123" }
+# -> { "ok": true, "target": { ... } }
+
+vdr keywords:tracked example.com --remove tgt_123
+# DELETE /api/v1/sites/example.com/keywords?id=tgt_123
+# -> { "ok": true }
+```
+
+An add or refresh that misses the SERP cache pays an upstream fetch and rides
+the stricter keyword limiter; cached keywords ride the generous api tier.
+Duplicates return `409`, the per-site limit returns `400`, an exhausted free
+allowance returns `402` with an `upgradeUrl`, and `503` means live ranking
+data is temporarily unavailable (retry in a minute, do not loop).
+
+## sites:visibility (owner-scoped)
+
+```bash
+vdr sites:visibility example.com
+# GET /api/v1/sites/example.com/ai-visibility
+```
+
+Returns `status` (`ready` or `pending`), the stored `snapshot` (visibility
+`score`, `totalAnswers`/`mentionedAnswers`, `byPlatform` for ChatGPT,
+Perplexity, and Google AI Mode, per-question `answers` with `brands`,
+`citedPages`, and `citedDomains`, aggregate `brands`, `sources`, and
+`topPages`), `pageOutreach` (cited pages worth outreach, with `dr`/`trueDr`
+when the domain is indexed), `prompts` (each `{ id, prompt, source }`),
+`history`, `delta`, and `nextRefreshAt`. Reads stored runs only — it never
+spends a vendor run. `pending` means no run stored yet: tell the user to
+start the first one from the site's AI Visibility tab in the dashboard.
+
+The same command edits the tracked questions, same contract as the dashboard
+editor (Pro/Ultra; edits never trigger a vendor run — the next scheduled
+refresh asks the new questions):
+
+```bash
+vdr sites:visibility example.com --add-prompt "best ai visibility tools"
+# POST /api/v1/sites/example.com/ai-visibility  { "prompt": "..." }
+# -> { "ok": true, "prompts": [ ... ] }
+
+vdr sites:visibility example.com --remove-prompt prm_123
+# DELETE /api/v1/sites/example.com/ai-visibility?promptId=prm_123
+# -> { "ok": true, "prompts": [ ... ] }
+
+vdr sites:visibility example.com --reset-prompts
+# POST /api/v1/sites/example.com/ai-visibility  { "action": "reset" }
+# -> { "ok": true, "prompts": [ ... ] }  (reseeded from tracked keywords)
+```
+
+Questions must be 8-140 characters and must not name the owner's own site
+(the API rejects self-naming questions with `400` — a question that names the
+site guarantees a mention and would make the score meaningless). The
+per-site question limit and duplicates also return `400`; free keys get `402`
+with an `upgradeUrl`.
 
 ## badge:snippets (public)
 
