@@ -8,13 +8,16 @@ description: >-
   discovering trusted sites by category or TrueDR for partner/sponsor/integration
   prospecting, grabbing badge or embed snippets, monitoring authority changes,
   traffic validation, backlink deltas, trust/spam alerts on sites you own,
+  AI visibility (how often ChatGPT, Perplexity, and Google AI Mode mention a
+  site you own, with cited pages worth outreach),
   Google disavow candidate files for spammy links, and keyword research: the DR
   a keyword's Google top 10 demands, your DR gap to it, and winnable keywords a
   domain already ranks 4-30 for; exporting VerifiedDR data for
   scripts, CI, dashboards, or SaaS integrations.
   Prefer this skill for requests mentioning VerifiedDR analyze, diagnose,
   actions, opportunities, next, lookup, find, monitor, export, snippets, TrueDR,
-  trust score, traffic validation, disavow, spam links, keyword research,
+  trust score, traffic validation, disavow, spam links, AI visibility,
+  AI mentions, LLM visibility, keyword research,
   keyword difficulty by DR, winnable keywords, or agent-friendly
   VerifiedDR workflows.
 ---
@@ -112,11 +115,13 @@ vdr keywords:tracked <domain>        # your saved keyword targets + stored snaps
 vdr sites:list                       # list YOUR sites
 vdr sites:get <domain>               # one of YOUR sites with stored trends
 vdr sites:truedr <domain> [--detailed] # owner-only TrueDR signal breakdown
+vdr sites:visibility <domain>        # owner-only AI Visibility snapshot (ChatGPT/Perplexity/Google AI Mode)
 vdr sites:monitor [<domain>] [--daily]   # watch YOUR sites for changes
 vdr sites:export <domain>            # machine-readable export of YOUR site
 vdr sites:disavow <domain>           # Google disavow candidates for severe spam risk
 vdr sites:gsc-performance <domain> [--range 28d] # owner-only GSC performance
 vdr sites:gsc-audit <domain> [--run] # latest index audit; --run starts a fresh audit
+vdr sites:bing-setup                # open Bing Webmaster Tools; no key/quota
 vdr sites:submit <url> [--title ... --category ...] # add a site
 vdr sites:verify <domain>             # re-check its badge embed
 ```
@@ -219,6 +224,9 @@ copy.
 - `sites:gsc-audit <domain>` to read the latest owner-scoped Google index audit.
   Add `--run` only when the user wants a fresh audit; it spends URL Inspection
   budget and the server enforces a 12-hour cooldown.
+- `sites:bing-setup` to open Bing Webmaster Tools in the user's browser. This
+  is only a local setup shortcut: it does not connect Bing to VerifiedDR,
+  import data, require an API key, or spend quota.
 - `sites:disavow <domain>` only when owner-scoped data shows severe spam-link
   risk and the owner wants a Google disavow-format candidate file. It is
   cache-only, owner-scoped, supports `--min-spam <n>` (default 50),
@@ -227,6 +235,13 @@ copy.
   not a default growth tactic or a guaranteed ranking/TrueDR improvement.
 - `sites:truedr <domain> --detailed` for the full per-signal trust breakdown,
   only available for sites the key owner owns.
+- `sites:visibility <domain>` for the stored AI Visibility snapshot of a site
+  the key owner owns: visibility score, each asked question with per-platform
+  answers (ChatGPT, Perplexity, Google AI Mode) and whether the site was
+  mentioned, cited pages worth outreach (with DR/TrueDR when indexed), and run
+  history. Reads stored runs only and never triggers a vendor run; if no run
+  exists yet, tell the user to start the first one from the site's AI
+  Visibility tab in the dashboard.
 - `sites:submit` / `sites:verify` to list a new site or re-check its badge embed.
 
 The pre-`0.2` verbs (`lookup`, `find`, `sites`, `monitor`, ...) still work as
@@ -242,7 +257,7 @@ hidden aliases, but prefer the `resource:action` forms above.
   `keywords:suggest`. Require an Advanced or Ultra plan on the key's account;
   free keys get `402` with `upgradeUrl`, `requiredPlan`, and `blockedFeature`.
 - **Owner-scoped (key owner's own sites only):** `sites:list`, `sites:get`,
-  `sites:truedr`, `sites:export`, `sites:disavow`, `sites:monitor`,
+  `sites:truedr`, `sites:visibility`, `sites:export`, `sites:disavow`, `sites:monitor`,
   `sites:gsc-performance`, `sites:gsc-audit`, `sites:submit`, `sites:verify`.
   GSC commands also require a connected Search Console property and an eligible
   Search Console plan. If the user requests owner-scoped data for a domain they

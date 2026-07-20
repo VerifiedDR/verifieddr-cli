@@ -10,13 +10,17 @@
  * Base:  VERIFIEDDR_API_BASE=https://verifieddr.com   (override for testing)
  */
 
+import { execFile } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { promisify } from "node:util";
 
 const DEFAULT_BASE = "https://verifieddr.com";
 const DEFAULT_UPGRADE_URL =
 	"https://verifieddr.com/pricing?source=cli&feature=api";
+const BING_WEBMASTER_TOOLS_URL = "https://www.bing.com/webmasters/";
+const execFileAsync = promisify(execFile);
 
 type Json = Record<string, unknown>;
 type ApiTier = "free" | "pro" | "agency" | string;
@@ -32,6 +36,42 @@ function out(value: unknown): void {
 function fail(message: string, code = 1): never {
 	out({ ok: false, error: message });
 	process.exit(code);
+}
+
+async function openBingWebmasterTools(): Promise<void> {
+	let command: string;
+	let args: string[];
+
+	switch (process.platform) {
+		case "darwin":
+			command = "open";
+			args = [BING_WEBMASTER_TOOLS_URL];
+			break;
+		case "win32":
+			command = "cmd";
+			args = ["/c", "start", "", BING_WEBMASTER_TOOLS_URL];
+			break;
+		default:
+			command = "xdg-open";
+			args = [BING_WEBMASTER_TOOLS_URL];
+	}
+
+	try {
+		await execFileAsync(command, args);
+		out({
+			ok: true,
+			opened: true,
+			url: BING_WEBMASTER_TOOLS_URL,
+			message: "Opened Bing Webmaster Tools in your browser.",
+		});
+	} catch {
+		out({
+			ok: true,
+			opened: false,
+			url: BING_WEBMASTER_TOOLS_URL,
+			message: "Could not open a browser. Open the URL above manually.",
+		});
+	}
 }
 
 function failApiError(
@@ -135,14 +175,20 @@ function commandDomainArg(args: string[]): string {
 	return domain;
 }
 
+const DEFAULT_TIMEOUT_MS = 20000;
+// A fresh index audit inspects up to 40 URLs against Google's URL Inspection
+// API server-side, which routinely takes longer than the default timeout.
+const GSC_AUDIT_RUN_TIMEOUT_MS = 180000;
+
 async function request(
 	args: string[],
 	method: "GET" | "POST",
 	path: string,
 	body?: Json,
 	requireKey = true,
+	timeoutMs = DEFAULT_TIMEOUT_MS,
 ): Promise<void> {
-	out(await requestData(args, method, path, body, requireKey));
+	out(await requestData(args, method, path, body, requireKey, timeoutMs));
 }
 
 async function requestData(
@@ -151,8 +197,20 @@ async function requestData(
 	path: string,
 	body?: Json,
 	requireKey = true,
+	timeoutMs = DEFAULT_TIMEOUT_MS,
 ): Promise<Json> {
-	return (await requestResult(args, method, path, body, requireKey)).data;
+	return (
+		await requestResult(
+			args,
+			method,
+			path,
+			body,
+			requireKey,
+			true,
+			false,
+			timeoutMs,
+		)
+	).data;
 }
 
 async function requestResult(
@@ -163,6 +221,7 @@ async function requestResult(
 	requireKey = true,
 	failOnError = true,
 	quietQuota = false,
+	timeoutMs = DEFAULT_TIMEOUT_MS,
 ): Promise<ApiResult> {
 	const key = apiKey(args);
 	if (requireKey && !key) {
@@ -181,7 +240,7 @@ async function requestResult(
 			method,
 			headers,
 			body: body ? JSON.stringify(body) : undefined,
-			signal: AbortSignal.timeout(20000),
+			signal: AbortSignal.timeout(timeoutMs),
 		});
 	} catch (error) {
 		const message = `Request failed: ${error instanceof Error ? error.message : String(error)}`;
@@ -269,6 +328,9 @@ Your own sites (owner-scoped):
   vdr sites:list                         List your sites + metrics
   vdr sites:get <domain>                 One of your sites with DR/traffic trends
   vdr sites:truedr <domain> [--detailed] Your site's TrueDR (+ signal breakdown)
+  vdr sites:visibility <domain>          AI Visibility: how often ChatGPT,
+                                         Perplexity, and Google AI Mode mention
+                                         your site (stored snapshot + history)
   vdr sites:export <domain>              Machine-readable export of your site
   vdr sites:disavow <domain>             Google disavow candidates for severe spam risk
   vdr sites:monitor [<domain>] [--daily] Watch changes + trust alerts
@@ -280,6 +342,8 @@ Your own sites (owner-scoped):
   vdr sites:gsc-audit <domain> [--run]   Google index audit via your connected
                                          Search Console property (--run starts
                                          a fresh one; 12h cooldown)
+  vdr sites:bing-setup                   Open Bing Webmaster Tools in your browser
+                                         (no API key, sync, or quota usage)
   vdr sites:submit-urls <url> [url...]   Push new/updated URLs to search engines
                                          via IndexNow (Bing, Yandex, Seznam,
                                          Naver; Google has no such API). Needs
@@ -325,6 +389,8 @@ const ALIASES: Record<string, string> = {
 	sites: "sites:list",
 	site: "sites:get",
 	truedr: "sites:truedr",
+	visibility: "sites:visibility",
+	"ai-visibility": "sites:visibility",
 	disavow: "sites:disavow",
 	export: "sites:export",
 	monitor: "sites:monitor",
@@ -1627,6 +1693,12 @@ async function main(): Promise<void> {
 				`/api/v1/sites/${encode(domainArg(args))}/truedr${detailed}`,
 			);
 		}
+		case "sites:visibility":
+			return request(
+				args,
+				"GET",
+				`/api/v1/sites/${encode(domainArg(args))}/ai-visibility`,
+			);
 		case "keywords:research": {
 			const keyword = positionalArgs(args)[0];
 			if (!keyword) {
@@ -1681,14 +1753,24 @@ async function main(): Promise<void> {
 		case "sites:gsc-audit": {
 			const path = `/api/v1/sites/${encode(domainArg(args))}/gsc-audit`;
 			// GET returns the latest stored audit; --run spends inspection budget
-			// on a fresh one (server enforces a 12h cooldown).
-			return request(args, flag(args, "--run") ? "POST" : "GET", path);
+			// on a fresh one and waits for the full server-side run.
+			const run = flag(args, "--run");
+			return request(
+				args,
+				run ? "POST" : "GET",
+				path,
+				undefined,
+				true,
+				run ? GSC_AUDIT_RUN_TIMEOUT_MS : DEFAULT_TIMEOUT_MS,
+			);
 		}
 		case "sites:gsc-performance": {
 			const range = option(args, "--range") ?? "28d";
 			const path = `/api/v1/sites/${encode(domainArg(args))}/gsc-performance?${new URLSearchParams({ range })}`;
 			return request(args, "GET", path);
 		}
+		case "sites:bing-setup":
+			return openBingWebmasterTools();
 		case "sites:submit-urls":
 			return sitesSubmitUrls(args);
 		case "sites:submit": {

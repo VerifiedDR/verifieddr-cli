@@ -117,6 +117,7 @@ vdr keywords:tracked example.com      # your saved keyword targets + stored snap
 vdr sites:list                        # list your sites + metrics
 vdr sites:get example.com             # one site with DR/traffic trends
 vdr sites:truedr example.com --detailed   # TrueDR + full signal breakdown
+vdr sites:visibility example.com      # AI Visibility: ChatGPT/Perplexity/Google AI Mode mentions
 vdr sites:export example.com          # machine-readable export
 vdr sites:disavow example.com         # Google disavow candidates for severe spam risk
 vdr sites:monitor --daily             # watch all your sites for changes
@@ -127,6 +128,7 @@ vdr sites:gsc-performance example.com # 28d GSC totals, daily series + top dimen
 vdr sites:gsc-performance example.com --range 3m # 28d, 3m, 6m, 12m, or 16m
 vdr sites:gsc-audit example.com       # latest Google index audit (needs GSC connected)
 vdr sites:gsc-audit example.com --run # run a fresh audit (12h cooldown)
+vdr sites:bing-setup                   # open Bing Webmaster Tools (no key/quota)
 
 # Ping search engines about new or updated URLs (IndexNow)
 vdr sites:submit-urls --generate-key  # one-time: create a key, host <key>.txt on your domain
@@ -163,6 +165,12 @@ public request-indexing API for regular pages; for Google, keep your sitemap
   stored data only (no live SERP fetch), so it works on every plan.
 - **Owner-scoped** (`sites:*`): only your own claimed sites.
   `sites:truedr --detailed` returns the full signal breakdown for sites you own.
+  `sites:visibility` returns the stored AI Visibility snapshot for a site you
+  own: the visibility score, every asked question with each AI platform's
+  answer and whether your site was mentioned, cited pages worth outreach, and
+  the run history. It reads stored runs only (the hourly cron and the
+  dashboard refresh them), so it never spends a vendor run; free accounts see
+  their one baseline run once it has been started from the dashboard.
   `sites:disavow` prints a Google disavow-format candidate file only for severe
   spam-link risk found in cached evidence; use `--min-spam`, `--include-lost`,
   `--limit`, or `--json` to tune/review it. It never submits anything to Google
