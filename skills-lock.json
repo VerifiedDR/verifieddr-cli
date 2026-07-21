@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "seo-publish-pipeline": {
+      "source": "VerifiedDR/verifieddr-cli",
+      "sourceType": "github",
+      "skillPath": "skills/seo-publish-pipeline/SKILL.md",
+      "computedHash": "bf507ef1d7f57b093722d85312db6c00ec5941b5109b828153061149aff04026"
+    },
+    "verifieddr-authority": {
+      "source": "VerifiedDR/verifieddr-cli",
+      "sourceType": "github",
+      "skillPath": "skills/verifieddr-authority/SKILL.md",
+      "computedHash": "16073a216e546698f64aa0d7808b2826b5d73f6f9df8b7808a3d51f5c123fb5d"
+    }
+  }
+}

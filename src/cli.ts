@@ -350,7 +350,6 @@ Your own sites (owner-scoped):
   vdr sites:visibility <domain> --reset-prompts
                                          Reseed questions from your keywords
   vdr sites:export <domain>              Machine-readable export of your site
-  vdr sites:disavow <domain>             Google disavow candidates for severe spam risk
   vdr sites:monitor [<domain>] [--daily] Watch changes + trust alerts
   vdr sites:submit <url> [--title --description --category --xhandle]
   vdr sites:verify <domain>              Re-check the badge embed
@@ -380,9 +379,6 @@ opportunities filters:
   --contact <slug|domain>  --dry-run (preview + store draft)
   --approve (send stored draft)  --subject <text>  --message <text>
 
-disavow filters:
-  --min-spam <n> (default 50)  --include-lost  --limit <n>  --json
-
 Global flags: --key vdr_...   --base <url>   --version`;
 
 /**
@@ -409,7 +405,6 @@ const ALIASES: Record<string, string> = {
 	truedr: "sites:truedr",
 	visibility: "sites:visibility",
 	"ai-visibility": "sites:visibility",
-	disavow: "sites:disavow",
 	export: "sites:export",
 	monitor: "sites:monitor",
 	submit: "sites:submit",
@@ -844,30 +839,6 @@ async function authorityMap(args: string[]): Promise<void> {
 		fail("Map response did not include backlink map data.", 6);
 	}
 	process.stdout.write(`${renderBacklinkMap(map, args)}\n`);
-}
-
-async function sitesDisavow(args: string[]): Promise<void> {
-	const q = new URLSearchParams();
-	const minSpam = option(args, "--min-spam");
-	if (minSpam) q.set("minSpam", minSpam);
-	const limit = option(args, "--limit");
-	if (limit) q.set("limit", limit);
-	if (flag(args, "--include-lost")) q.set("includeLost", "true");
-	const qs = q.toString();
-	const result = await requestData(
-		args,
-		"GET",
-		`/api/v1/disavow/${encode(domainArg(args))}${qs ? `?${qs}` : ""}`,
-	);
-	if (flag(args, "--json")) {
-		out(result);
-		return;
-	}
-	const file = (result.disavow as { file?: unknown } | undefined)?.file;
-	if (typeof file !== "string") {
-		fail("Disavow response did not include a file.", 6);
-	}
-	process.stdout.write(`${file}\n`);
 }
 
 function printScoreBlock(lookup: Lookup): void {
@@ -1420,7 +1391,7 @@ function coachAuditBacklinks(lookup: Lookup): void {
 		"",
 		"Next:",
 		trust != null && trust < 60
-			? "Prioritize reviewing weak or irrelevant referring domains, and use disavow only for confirmed severe spam risk."
+			? "Prioritize reviewing weak or irrelevant referring domains and outgrow them with clean, relevant links."
 			: "Focus on adding relevant directory and partner links.",
 		`Run: vdr opportunities ${domain}`,
 	]);
@@ -1695,8 +1666,6 @@ async function main(): Promise<void> {
 			);
 		case "sites:export":
 			return request(args, "GET", `/api/v1/export/${encode(domainArg(args))}`);
-		case "sites:disavow":
-			return sitesDisavow(args);
 		case "sites:get":
 			return request(args, "GET", `/api/v1/sites/${encode(domainArg(args))}`);
 		case "sites:list":

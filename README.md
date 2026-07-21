@@ -125,7 +125,6 @@ vdr sites:visibility example.com --add-prompt "best ai visibility tools"  # trac
 vdr sites:visibility example.com --remove-prompt <id>  # stop tracking a question
 vdr sites:visibility example.com --reset-prompts       # reseed questions from your keywords
 vdr sites:export example.com          # machine-readable export
-vdr sites:disavow example.com         # Google disavow candidates for severe spam risk
 vdr sites:monitor --daily             # watch all your sites for changes
 vdr sites:monitor example.com         # watch one site
 vdr sites:submit https://example.com --title "Example" --category saas
@@ -189,10 +188,6 @@ public request-indexing API for regular pages; for Google, keep your sitemap
   editing is Pro/Ultra; edits never trigger a vendor run — the next scheduled
   refresh picks the new list up. Prompt ids come from the snapshot's
   `prompts` list.
-  `sites:disavow` prints a Google disavow-format candidate file only for severe
-  spam-link risk found in cached evidence; use `--min-spam`, `--include-lost`,
-  `--limit`, or `--json` to tune/review it. It never submits anything to Google
-  and is not a default growth tactic.
 
 ## Output
 
@@ -237,15 +232,14 @@ After installing the skills, ask for one of these outcomes instead of memorizing
 commands:
 
 1. **Growth Loop:** find the TrueDR gap, check the detailed actions, review
-   Google disavow candidates only for severe spam risk, pick one partner move,
-   and end with the command to approve.
+   weak backlink evidence, pick one partner move, and end with the command to
+   approve.
 2. **Partner Outreach:** find one verified partner, preview the outreach with
    `--dry-run`, then send only after approval.
 3. **Progress Report:** check TrueDR and DR movement, review weak backlink
    evidence, choose one next action, and write a founder or client-ready update.
-4. **Fix Weak Authority Signals:** inspect the owner-scoped signal breakdown,
-   choose the relevant fix, and skip disavow when severe spam risk is not the
-   issue.
+4. **Fix Weak Authority Signals:** inspect the owner-scoped signal breakdown
+   and choose the relevant fix.
 5. **Monitor Metrics:** set a recurring authority check for DR, TrueDR, traffic
    validation, backlink deltas, and trust alerts.
 6. **Publish an SEO Article:** run the gated publish pipeline — pick a keyword
@@ -257,13 +251,9 @@ Example prompts:
 ```text
 Run the VerifiedDR growth loop for example.com.
 Analyze the TrueDR gap, then run `vdr sites:truedr example.com --detailed` to
-check the owner-scoped recommendations. If the detailed actions show severe
-spam-link risk, generate Google disavow candidates with `vdr sites:disavow
-example.com --min-spam 50`, explain that the file is only a candidate list, and
-list the domains I need to approve before any Search Console upload. If severe
-spam risk is not a top issue, skip disavow and say so. Then choose the best
-partner opportunity, draft the outreach angle, and end with the exact command I
-should approve next.
+check the owner-scoped recommendations and weakest backlink evidence. Then
+choose the best partner opportunity, draft the outreach angle, and end with the
+exact command I should approve next.
 ```
 
 ```text
