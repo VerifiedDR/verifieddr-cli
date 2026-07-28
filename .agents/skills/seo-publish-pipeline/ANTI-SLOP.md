@@ -20,7 +20,13 @@ Remove or rewrite:
   "without further ado", any sentence that survives deletion with zero loss
 - **Unsupported claims**: superlatives and statistics with no source. Either
   cite it, downgrade it ("many" -> the actual number, or cut), or delete it.
-  Product claims: re-check against `product.md` in the project root.
+  Product claims: re-check against `product.md` in the project root. Every
+  remaining number must appear in the step-4 evidence table with its source
+  command and date; a number that is not there gets cut, not softened.
+- **Perishable counts**: hardcoded feature counts, plan limits, and prices age
+  into lies ("seven workflows" when there are eight). Keep the count only when
+  it is doing real work in the sentence, and log it for the stale-claim sweep;
+  otherwise rewrite without it.
 - **Internal vendor names**: never expose upstream data providers or internal
   APIs (DataForSEO, Ahrefs, RapidAPI, or similar) in published copy. Replace
   with "live backlink data", "real backlink evidence", or "third-party

@@ -14,7 +14,9 @@ shape with intent; the rest are literal.
 
 3. **Longer answer block** - one self-contained section (150-250 words) that
    an AI engine can lift whole: restates the question, gives the full answer
-   with concrete numbers/steps, no references to "below" or "above".
+   with concrete numbers/steps, no references to "below" or "above". Numbers
+   here carry their source and date inline, since this block travels away from
+   the page when a model quotes it.
 
 4. **Clear sections (adapt)** - body sections shaped by intent. Use
    problem/outcome headings where they are more specific than category labels:
@@ -31,7 +33,10 @@ shape with intent; the rest are literal.
 
 6. **Internal links** - 2-5 links to existing pages on the site, woven into
    body text where relevant, descriptive anchor text. Verify every URL exists
-   before publishing. No orphan "Related posts" dump.
+   before publishing. No orphan "Related posts" dump. Link to the feature page
+   for the capability the article discusses, not only to the blog archive; if
+   no such page exists and the topic carries the product, say so to the user
+   rather than pointing the reader at a signup form.
 
 7. **Product section** - one section connecting the topic to the product.
    Every claim validated against `product.md` in the project root. If the product
