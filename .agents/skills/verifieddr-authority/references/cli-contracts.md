@@ -6,7 +6,7 @@ The CLI mirrors these endpoints one-to-one. JSON examples are abbreviated.
 ## Coach commands (plain text)
 
 Coach commands call `authority:lookup` under the hood, then turn the public
-authority data into advice. They print plain text, not JSON.
+lookup data into advice. They print plain text, not JSON.
 
 ```bash
 vdr analyze example.com
@@ -17,13 +17,12 @@ vdr opportunities example.com --contact partner-slug
 vdr opportunities example.com --contact partner-slug --dry-run
 vdr map example.com
 vdr audit backlinks example.com
-vdr content-plan example.com
-vdr fix example.com --goal +10
-vdr track example.com
 vdr explain example.com
-vdr boost example.com
 vdr next example.com
 ```
+
+`fix`, `boost`, `content-plan`, and `track` were removed in 0.8.0; running one
+returns an error naming its replacement (`growth:tasks --run`, `sites:monitor`).
 
 `analyze` prints current TrueDR/DR/gap, the main issue, top actions, heuristic
 TrueDR impact, and the exact command to run next. `next` is the shortest
@@ -92,7 +91,7 @@ vdr authority:lookup stripe.com
 ```
 
 - `authority.dr`: third-party Domain Rating.
-- `authority.trueDr`: VerifiedDR's independent, trust-adjusted authority.
+- `authority.trueDr`: VerifiedDR's independent, trust-adjusted score.
 - `authority.trustScore` / `confidence`: backlink trust score (0 to 100) and how
   much data backs it (`high` / `medium` / `low`).
 - `authority.trafficValidated`: whether real traffic evidence supports the link
@@ -128,7 +127,7 @@ terminal-safe referring-domain fields:
 
 The endpoint is cache-only and never triggers a paid backlink fetch. If the site
 has no cached backlink rows yet, it returns `503` with a message asking the user
-to open the site's DR Map or wait for the next authority refresh.
+to open the site's DR Map or wait for the next backlink refresh.
 
 ## discover:find (public discovery)
 
@@ -149,7 +148,7 @@ With `--opportunities-for`, the endpoint returns `{ opportunities: { domain,
 redacted: false, filters, candidates } }` using the site-specific TrueDR Connect
 match ranking.
 
-## keywords:research (Advanced/Ultra plans)
+## keywords:research (any paid plan)
 
 ```bash
 vdr keywords:research "best crm for startups"
@@ -187,7 +186,7 @@ vdr keywords:research "best crm for startups" --domain example.com
   "keyword_research"`. Uncached keywords are rate-limited harder than cached
   ones because each miss pays a live SERP fetch.
 
-## keywords:suggest (Advanced/Ultra plans)
+## keywords:suggest (any paid plan)
 
 ```bash
 vdr keywords:suggest example.com
@@ -282,18 +281,54 @@ Perplexity, and Google AI Mode, per-question `answers` with `brands`,
 `citedPages`, and `citedDomains`, aggregate `brands`, `sources`, and
 `topPages`), `pageOutreach` (cited pages worth outreach, with `dr`/`trueDr`
 when the domain is indexed), `prompts` (each `{ id, prompt, source }`),
-`history`, `delta`, and `nextRefreshAt`. Reads stored runs only — it never
-spends a vendor run. `pending` means no run stored yet: tell the user to
-start the first one from the site's AI Visibility tab in the dashboard.
+`history`, `delta`, and `nextRefreshAt`. A plain read serves stored runs only,
+so it never spends. `pending` means no run stored yet: offer `--run`.
+
+`--run` is the only branch that reaches the models:
+
+```bash
+vdr sites:visibility example.com --run
+# POST /api/v1/sites/example.com/ai-visibility  { "action": "run" }
+# -> { "ok": true, "status": "ready", snapshot, prompts, history, ... }
+```
+
+Paid plans only (`402` on free), one run per site per week: a call inside that
+window returns the stored run rather than spending twice, and `nextRefreshAt`
+says when the window opens. It asks every tracked question on every platform,
+so it takes minutes; the CLI waits up to 5 minutes for it. Paid plans also get
+an automatic daily refresh, so a run is for "I want it now", not for keeping
+data fresh.
+
+Compare two stored runs instead of eyeballing snapshots:
+
+```bash
+vdr sites:visibility example.com --from 2026-07-01T09:00:00.000Z --to 2026-07-22T09:00:00.000Z
+# GET /api/v1/sites/example.com/ai-visibility?from=…&to=…
+# -> { "ok": true, "delta": { scoreDelta, brandsEntered, brandsLeft, ... } }
+```
+
+Both timestamps are required and must be `at` values from the snapshot's
+`history` (an unknown timestamp returns `404`, and the same run twice `400`).
+Stored data only, so it never spends a run.
 
 The same command edits the tracked questions, same contract as the dashboard
-editor (Pro/Ultra; edits never trigger a vendor run — the next scheduled
-refresh asks the new questions):
+editor. Edits are free on every plan and never trigger a run; the next refresh
+asks the new questions:
 
 ```bash
 vdr sites:visibility example.com --add-prompt "best ai visibility tools"
 # POST /api/v1/sites/example.com/ai-visibility  { "prompt": "..." }
 # -> { "ok": true, "prompts": [ ... ] }
+
+vdr sites:visibility example.com --add-prompt "beste seo tool" --location nl
+# POST … { "prompt": "...", "location": "nl" }
+
+vdr sites:visibility example.com --import "question one" "question two"
+# POST … { "action": "import", "prompts": ["question one", "question two"] }
+# -> { "ok": true, "prompts": [ ... ] }  (bad lines skipped, budget filled exactly)
+
+vdr sites:visibility example.com --set-location prm_123 --location us
+# POST … { "action": "set_prompt_location", "promptId": "prm_123", "location": "us" }
 
 vdr sites:visibility example.com --remove-prompt prm_123
 # DELETE /api/v1/sites/example.com/ai-visibility?promptId=prm_123
@@ -305,10 +340,201 @@ vdr sites:visibility example.com --reset-prompts
 ```
 
 Questions must be 8-140 characters and must not name the owner's own site
-(the API rejects self-naming questions with `400` — a question that names the
-site guarantees a mention and would make the score meaningless). The
-per-site question limit and duplicates also return `400`; free keys get `402`
-with an `upgradeUrl`.
+(the API rejects self-naming questions with `400`: a question that names the
+site guarantees a mention and would make the score meaningless). Duplicates
+return `400`, and an unknown `location` does too. Questions are asked globally
+unless pinned to a country, and pinning needs a paid plan. The prompt budget is
+account-wide, not per site: over it, writes return `402` naming the limit and
+what is in use, so check `vdr account:usage` before a bulk import.
+
+## growth:tasks (owner-scoped)
+
+```bash
+vdr growth:tasks example.com
+# GET /api/v1/sites/example.com/growth
+```
+
+`{ ok, status, website, locked, summary, run, tasks, teaserTask,
+lockedTaskCount, competitors, approvedCompetitors, history }`. `summary` holds
+`dr`, `trueDr`, `gap`, `traffic`, `confidence`, `mainIssue`, and `nextAction`.
+Each task has `id`, `kind`, `priority`, `status`, `title`, `description`,
+`impact`, `source`, and an `artifact` with the narrative and execution fields.
+Reading is free insight: on a free key `locked` is true, `tasks` is empty, and
+`teaserTask` plus `lockedTaskCount` describe the withheld plan.
+
+```bash
+vdr growth:tasks example.com --run
+# POST /api/v1/sites/example.com/growth  { "action": "run" }
+
+vdr growth:tasks example.com --task tsk_123 --status done
+# POST /api/v1/sites/example.com/growth  { "action": "task", "id": "…", "status": "done" }
+# -> { "ok": true, "task": { ... } }
+```
+
+`--run` is paid-only and recomputes trust, the map, benchmark link gaps, and
+the task list, so it is slow; tasks the user already moved out of `todo` keep
+their status. Valid statuses are `todo`, `in_progress`, `blocked`, and `done`;
+anything else returns `400` naming them. Never mark a task `done` without the
+user confirming the work shipped.
+
+## account:usage
+
+```bash
+vdr account:usage
+# GET /api/v1/account/usage
+```
+
+`{ ok, plan, api: { tier, callsUsed, callsLimit, callsRemaining }, prompts: {
+used, limit, remaining }, entitlements, upgradeUrl }`. `plan` is `null` on the
+free tier, otherwise `starter` (sold as Pro), `max`, or `ultra`. `prompts` is
+the account-wide AI search prompt budget across every website; `entitlements`
+also reports `keywordsPerWebsite`, `partnerRequests`, `dailyRefresh`,
+`visibilityGuarantee`, and `apiCalls`. Read this before a bulk question import
+or a session of runs.
+
+## marketplace:* (owner-scoped)
+
+```bash
+vdr marketplace:packages
+# GET /api/v1/marketplace/packages
+# -> { ok, inventory: { websites, minTrueDr, maxTrueDr, medianTrueDr,
+#      totalTraffic, bundles }, packages: [ ... ] }
+
+vdr marketplace:sites --limit 20
+# GET /api/v1/marketplace/sites?limit=20
+# -> { ok, total, sites: [ { websiteId, slug, url, host, title, label,
+#      category, trueDr, dr, traffic, priceAmount, buyerPriceAmount,
+#      proDiscountBps, placement, formats, relevant } ] }
+```
+
+Both are priced for the caller: the plan's marketplace discount is applied to
+`buyerPriceAmount` at read time, so the listing already quotes what this buyer
+pays. Rows are ranked with the buyer's own niches first, and their own websites
+are never listed to them. `limit` is clamped to 1-100 rather than rejected.
+
+```bash
+vdr marketplace:cart                       # GET  /api/v1/marketplace/cart
+vdr marketplace:cart --add-package <id>    # POST { action: "add_package", packageId }
+vdr marketplace:cart --add-site <websiteId># POST { action: "add_site", websiteId }
+vdr marketplace:cart --remove <index>      # POST { action: "remove", index }
+vdr marketplace:cart --checkout            # POST { action: "checkout" }
+# -> { ok, checkoutUrl }
+```
+
+A cart holds 5 rows and refuses a second row on the same website. Prices are
+re-derived server-side on every write, never trusted from the caller.
+`--checkout` returns a Stripe Checkout URL and charges nothing: hand the link
+to the user. An empty or unfillable cart returns `409`.
+
+```bash
+vdr marketplace:orders
+# GET /api/v1/marketplace/orders -> { ok, orders: [ ... ] }
+
+vdr marketplace:orders --brief ORD-7 --target-url https://you.com/a \
+  --target-url https://you.com/b --anchor "best crm" --about "..." \
+  --talking-points "..."
+# POST { action: "brief", orderNo, brief: { targetUrls, anchorPrefs,
+#        companyDescription, talkingPoints } }
+# -> { ok, briefed: <count> }
+```
+
+The brief is collected after payment by design, and publishers are only briefed
+once it lands, so an unbriefed paid order is stalled work. `--target-url`
+repeats, one per page.
+
+```bash
+vdr marketplace:requests example.com
+# GET /api/v1/marketplace/requests?websiteSlug=example.com
+
+vdr marketplace:requests example.com --title "Review swap" \
+  --description "..." --budget 250
+# POST { websiteSlug, title, description, budgetAmount: 25000 }
+
+vdr marketplace:requests example.com --remove <id>
+# DELETE /api/v1/marketplace/requests?websiteSlug=…&id=…
+```
+
+`--budget` is dollars on the CLI and `budgetAmount` is USD minor units on the
+wire; 0 means open to discuss. Posting needs a verified website (`409`
+otherwise), and the per-website request cap returns `400`. Passing `--id` edits
+an existing request instead of adding one.
+
+## earn:* (owner-scoped)
+
+```bash
+vdr earn:sites
+# GET /api/v1/earn/sites -> { ok, sites: [ { websiteId, websiteSlug,
+#      websiteUrl, websiteTitle, trueDr, dr, traffic, categories, verified,
+#      eligible, blockers, status?, payoutAmount, publisherShareBps,
+#      proBonusBps, linkTypes, turnaroundDays, maxPlacementsPerMonth,
+#      acceptedTermsAt?, approved } ] }
+
+Every owned website is listed, in or out of the network: `status` is absent
+until it has been enrolled, `eligible` says whether it clears the TrueDR and
+traffic floors, and `blockers` says what is in the way when it does not.
+
+vdr earn:sites example.com --join --accept-terms \
+  --formats guest_post,niche_edit,homepage --turnaround 7 --max-placements 4
+# POST { action: "join", websiteSlug, acceptTerms: true, linkTypes,
+#        turnaroundDays, maxPlacementsPerMonth }
+
+vdr earn:sites example.com --status paused
+# POST { action: "status", websiteSlug, status }
+```
+
+Valid formats are `guest_post`, `niche_edit`, and `homepage`; unknown ones are
+dropped rather than failing the call. `acceptTerms` must be explicitly true and
+the CLI refuses to send it without `--accept-terms`. Joining requires a verified
+website (`409`) and lands in `pending` until a human approves it. Statuses are
+`active`, `paused`, and `removed`; reactivating a `pending` or `removed`
+website returns `409`.
+
+```bash
+vdr earn:assignments
+# GET /api/v1/earn/assignments -> { ok, assignments: [ { placementId, status,
+#      websiteUrl, websiteTitle, targetUrl, anchorText, companyDescription,
+#      talkingPoints, payoutAmount, liveUrl, assignedAt, respondBy,
+#      payoutDueAt?, paidOutAt?, guaranteeUntil? } ] }
+
+`respondBy` is the accept deadline, after which the placement is reassigned:
+that is the timestamp to sort an assignment queue by.
+
+vdr earn:assignments --accept <placementId>
+vdr earn:assignments --decline <placementId> --reason "off-topic"
+vdr earn:assignments --live <placementId> --url https://example.com/post
+# POST { action: "accept" | "decline" | "live", placementId, reason?, liveUrl? }
+
+vdr earn:earnings
+# GET /api/v1/earn/earnings
+# -> { ok, currency, pendingAmount, dueAmount, paidAmount, payoutThresholdAmount }
+```
+
+Amounts are USD minor units. `live` verifies the page actually contains the
+link before the placement counts, so submitting a page without it fails.
+
+## inbox:* (owner-scoped)
+
+```bash
+vdr inbox:list --limit 25 --offset 0
+# GET /api/v1/inbox?limit=25&offset=0
+# -> { ok, threads: [ ... ], total, unreadCount, nextOffset }
+
+`total` and `unreadCount` count every visible thread, not just this page, and
+`nextOffset` is null when the list is exhausted.
+
+vdr inbox:thread <requestId>
+# GET /api/v1/inbox/<requestId> -> { ok, thread: { messages, website, deal, ... } }
+
+vdr inbox:thread <requestId> --reply "Happy to swap"
+# POST /api/v1/inbox/<requestId> { body }  -> { ok, sent: true, thread }
+
+vdr inbox:thread <requestId> --read
+# POST /api/v1/inbox/<requestId> { action: "read" }
+```
+
+`limit` is capped at 100. A reply is mailed to the other side as the key owner,
+exactly as a reply typed in the dashboard is: draft it, and send on the user's
+word.
 
 ## badge:snippets (public)
 
@@ -376,8 +602,9 @@ sampled indexed/not-indexed states; it is distinct from performance reporting.
 
 ## Errors
 
-- `401` missing/invalid key; `402` quota exhausted (Free = 10 calls/day, Pro =
-  1,000 calls/month, Agency = 10,000 calls/month); `404` unknown site (or not
-  owned, for owner-scoped commands).
+- `401` missing/invalid key; `402` the API is paid-only and the key's account
+  is free, or the plan's quota is spent (Pro = 1,000 calls/month, Max = 5,000,
+  Ultra = 10,000); `404` unknown site (or not owned, for owner-scoped
+  commands).
 - Headers `X-API-Quota-Limit` / `X-API-Quota-Remaining` / `X-API-Tier` are
   printed to stderr by the CLI.

@@ -1,8 +1,10 @@
 # VerifiedDR CLI
 
 A tiny, dependency-free CLI for the [VerifiedDR](https://verifieddr.com) API.
-Use it to understand why a domain's **TrueDR** is weak, find the next verified
-partner to contact, and check whether the work is improving authority over time.
+Use it to see how often ChatGPT, Perplexity, and Google AI Mode name your site,
+change the questions they are asked, work a generated growth plan, understand
+why a website's **TrueDR** is weak, and find the next verified partner to
+contact.
 The lower-level API commands still return clean JSON for scripts, CI,
 dashboards, and AI agents.
 
@@ -21,21 +23,22 @@ npm install -g verifieddr
 # Set your API key
 export VERIFIEDDR_API_KEY=vdr_your_key
 
+# See what your plan allows and what is left of it
+vdr account:usage
+
+# See who AI answers name for your questions
+vdr sites:visibility verifieddr.com
+
 # Get a score, diagnosis, and next actions
 vdr analyze verifieddr.com
 
-# Get the best next partner/action
-vdr next verifieddr.com
-
 # Surface verified partners worth contacting
 vdr opportunities verifieddr.com
-
-# Render the backlink map in your terminal
-vdr map verifieddr.com
 ```
 
-Get a free key in your VerifiedDR dashboard. **Free** includes 10 calls/day,
-**Pro** includes 1,000 calls/month, and **Agency** includes 10,000 calls/month.
+Your key is in your VerifiedDR dashboard, under **API**. The API needs a paid
+plan: **Pro** includes 1,000 calls/month, **Max** 5,000, and **Ultra** 10,000.
+A free key authenticates, but every call answers `402` with an upgrade link.
 Requires Node.js 18 or newer. If global installs are unavailable, run any
 command through `npx verifieddr ...`.
 
@@ -48,7 +51,64 @@ the env var on any command. When a feature or quota is locked, the CLI prints an
 
 ## Commands
 
-The coach commands are the default product surface:
+AI Visibility is the main surface: it is what the plan meters and what the
+Visibility Score guarantee is written against.
+
+```bash
+vdr sites:visibility example.com      # score, per-question answers, rival brands, cited pages
+vdr sites:visibility example.com --run    # ask the questions now (1 run per site per week)
+vdr sites:visibility example.com --from <iso> --to <iso>   # diff two stored runs
+vdr sites:visibility example.com --add-prompt "best crm for agencies"
+vdr sites:visibility example.com --add-prompt "best crm" --location us
+vdr sites:visibility example.com --import "question one" "question two"
+vdr sites:visibility example.com --set-location <id> --location de
+vdr sites:visibility example.com --remove-prompt <id>
+vdr sites:visibility example.com --reset-prompts   # reseed from your keywords
+
+# The generated growth plan behind the dashboard's Growth tab
+vdr growth:tasks example.com          # ranked tasks: impact, why, next step, benchmarks
+vdr growth:tasks example.com --run    # generate a fresh plan (finished tasks carry over)
+vdr growth:tasks example.com --task <id> --status done
+
+# Budget before you act, instead of discovering caps as a 402
+vdr account:usage                     # plan, account-wide prompt budget, API quota
+```
+
+Buy links, sell links, and answer the people who write to you:
+
+```bash
+# Marketplace: buy
+vdr marketplace:packages              # packages, priced for you, with the exact websites in each
+vdr marketplace:sites --limit 20      # single-website listings, your niche first
+vdr marketplace:cart --add-package <id>
+vdr marketplace:cart --add-site <websiteId>
+vdr marketplace:cart --checkout       # prints a Stripe URL; a human pays
+vdr marketplace:orders                # orders + placement status
+vdr marketplace:orders --brief <orderNo> --target-url https://you.com/page --anchor "best crm"
+vdr marketplace:requests example.com --title "Review swap" --description "..." --budget 250
+
+# Earn: your websites as publishers
+vdr earn:sites                        # every website + what it earns per placement
+vdr earn:sites example.com --join --accept-terms
+vdr earn:sites example.com --status paused
+vdr earn:assignments                  # work assigned to you
+vdr earn:assignments --accept <placementId>
+vdr earn:assignments --decline <placementId> --reason "off-topic"
+vdr earn:assignments --live <placementId> --url https://example.com/the-post
+vdr earn:earnings                     # pending, due, paid
+
+# Inbox
+vdr inbox:list                        # conversations + unread count
+vdr inbox:thread <id>                 # read one
+vdr inbox:thread <id> --reply "Happy to swap, here's my page"
+```
+
+Two deliberate limits. `--checkout` returns a Stripe Checkout URL and charges
+nothing: an agent may assemble a cart, but a human enters the card. And
+`--join` refuses to run without `--accept-terms`, because joining accepts the
+publisher terms on the owner's behalf.
+
+The coach commands turn that data into advice:
 
 ```bash
 vdr analyze example.com              # score, main issue, top 3 actions
@@ -58,16 +118,22 @@ vdr opportunities example.com        # verified partners, directories, backlink 
 vdr opportunities example.com --contact partner-slug --dry-run  # preview drafted mail
 vdr opportunities example.com --contact partner-slug --approve  # send the previewed draft
 vdr audit backlinks example.com      # backlink risk review
-vdr content-plan example.com         # authority-supporting page plan
-vdr fix example.com --goal +10       # 30/60/90-day growth plan
-vdr track example.com                # whether TrueDR is moving
 vdr explain example.com              # client/founder-ready explanation
-vdr boost example.com                # recommended authority campaign
-vdr next example.com                 # best next partner/action
+vdr next example.com                 # best next action, partner included
 ```
 
+`analyze` and `next` read your AI Visibility score first when the domain is one
+of your own sites, so the top action reflects what AI answers say, not only
+backlinks. That costs one extra quota call, and the other coach commands do
+not make it.
+
+`fix`, `boost`, `content-plan`, and `track` were removed in 0.8.0: they
+reprinted the same ranked action list under different headings, or reprinted
+change fields `sites:monitor` reports with real deltas. Running one now names
+its replacement.
+
 The coach loop is partner-first: `vdr next` prefers one concrete verified
-partner action when that is the fastest useful authority move. `vdr
+partner action when that is the fastest useful visibility move. `vdr
 opportunities` shows potential partnership candidates, the suggested outreach
 angle, and the exact command to approve before sending. Partner names are shown
 in full on every plan; only the monthly contact limit is plan-governed. Partner
@@ -80,8 +146,9 @@ copy. Sent contacts are logged locally, so candidate lists mark partners you
 already reached out to and `vdr next` prefers a fresh one. Add `--json` to
 `opportunities` or a contact call for machine-readable output.
 
-Pro and Agency users can contact a listed partner without seeing the owner's
-email address. Use `--dry-run` first to validate the target, quota, and message
+Paid plans can contact a listed partner without seeing the owner's email
+address; the plan sets the monthly contact limit (Pro 20, Max 50, Ultra
+unlimited). Use `--dry-run` first to validate the target, quota, and message
 before sending:
 
 ```bash
@@ -107,7 +174,7 @@ vdr discover:find --opportunities-for example.com --limit 10
 vdr badge:snippets stripe.com         # badge / embed snippets
 vdr categories:list                   # valid category values
 
-# Keyword research (Advanced/Ultra plans)
+# Keyword research (any paid plan)
 vdr keywords:research "best crm for startups"                  # DR the top 10 demands
 vdr keywords:research "best crm for startups" --domain example.com  # + your gap/verdict
 vdr keywords:suggest example.com      # winnable keywords the domain ranks 4-30 for
@@ -120,10 +187,6 @@ vdr keywords:tracked example.com --remove <id>   # stop tracking a keyword
 vdr sites:list                        # list your sites + metrics
 vdr sites:get example.com             # one site with DR/traffic trends
 vdr sites:truedr example.com --detailed   # TrueDR + full signal breakdown
-vdr sites:visibility example.com      # AI Visibility: ChatGPT/Perplexity/Google AI Mode mentions
-vdr sites:visibility example.com --add-prompt "best ai visibility tools"  # track a new question
-vdr sites:visibility example.com --remove-prompt <id>  # stop tracking a question
-vdr sites:visibility example.com --reset-prompts       # reseed questions from your keywords
 vdr sites:export example.com          # machine-readable export
 vdr sites:monitor --daily             # watch all your sites for changes
 vdr sites:monitor example.com         # watch one site
@@ -158,16 +221,16 @@ public request-indexing API for regular pages; for Google, keep your sitemap
   identity, billing state, or the per-signal trust breakdown. `vdr map` is
   cache-only: it never triggers a paid backlink fetch; if no cached map exists
   yet, try again after the site's DR Map has been opened or refreshed.
-- **Keyword research** (`keywords:research`, `keywords:suggest`): requires an
-  Advanced or Ultra plan on the key's account (free keys get a 402 with an
-  upgrade link). `keywords:research` returns the live Google top 10 for a
+- **Keyword research** (`keywords:research`, `keywords:suggest`): requires a
+  paid plan on the key's account (free keys get a 402 with an upgrade link;
+  every paid tier reaches it). `keywords:research` returns the live Google top 10 for a
   keyword with each domain's DR, the median ("DR needed") and the weakest
   ranking site ("entry point"); pass `--domain` to get your gap and verdict.
   `keywords:suggest` works for any domain and returns keywords it already
-  ranks 4-30 for, where authority is the likeliest blocker.
+  ranks 4-30 for, where a DR gap is the likeliest blocker.
   `keywords:tracked` is the exception: it lists your saved keyword targets
   with their stored difficulty snapshots for one of your own sites. It reads
-  stored data only (no live SERP fetch), so it works on every plan. It also
+  stored data only (no live SERP fetch), so it costs no keyword budget. It also
   edits the list, same contract as the dashboard Keywords tab: `--add
   "<keyword>"` tracks a new keyword (a SERP-cache miss pays an upstream fetch
   and rides the stricter keyword limiter), `--refresh <id>` re-snapshots a
@@ -177,17 +240,51 @@ public request-indexing API for regular pages; for Google, keep your sitemap
   `sites:truedr --detailed` returns the full signal breakdown for sites you own.
   `sites:visibility` returns the stored AI Visibility snapshot for a site you
   own: the visibility score, every asked question with each AI platform's
-  answer and whether your site was mentioned, cited pages worth outreach, and
-  the run history. It reads stored runs only (the hourly cron and the
-  dashboard refresh them), so it never spends a vendor run; free accounts see
-  their one baseline run once it has been started from the dashboard.
+  answer and whether your site was mentioned, the rival brands named more often
+  than you, cited pages worth outreach, and the run history. A plain read never
+  spends a vendor run.
   It also edits the tracked questions, same contract as the dashboard editor:
   `--add-prompt "<question>"` tracks a new question (8-140 chars, must not
-  name your own site), `--remove-prompt <id>` deletes one, and
-  `--reset-prompts` reseeds the list from your tracked keywords. Question
-  editing is Pro/Ultra; edits never trigger a vendor run — the next scheduled
-  refresh picks the new list up. Prompt ids come from the snapshot's
-  `prompts` list.
+  name your own site), `--import` takes several at once, `--set-location <id>
+  --location <code>` re-targets one at a country, `--remove-prompt <id>`
+  deletes one, and `--reset-prompts` reseeds from your tracked keywords. Edits
+  are free and never trigger a run; pinning a question to a country needs a
+  paid plan. Prompt ids come from the snapshot's `prompts` list.
+  `--run` is the one branch that reaches the models. It is the same call as the
+  dashboard's Run button: paid plans only, one run per site per week, and a
+  second call inside that window returns the stored run rather than spending
+  twice. Paid plans also get a daily refresh without asking. `--from <iso> --to
+  <iso>` diffs two stored runs (score move, brands gained and lost) and never
+  spends.
+- **Growth plan** (`growth:tasks`): the generated plan for a site you own, with
+  each task's kind, impact, priority, status, and execution artifact, plus the
+  benchmark sites it was built against. Reading is free insight: a free key
+  gets the summary and one revealed action. `--run` generates a fresh plan on a
+  paid plan, carrying over any task you already finished. `--task <id> --status
+  <todo|in_progress|blocked|done>` closes one after you did the work.
+- **Account** (`account:usage`): the plan key, the account-wide AI prompt
+  budget (prompts are metered across all your websites; websites themselves are
+  unlimited on every plan), the API quota, and the plan's entitlements.
+- **Marketplace** (`marketplace:*`): the same inventory, ranking, and prices the
+  Marketplace tab shows. Your plan discount is applied when the listing is
+  priced, not at checkout, so the number you read is the number you pay.
+  Packages and single listings share one cart, capped at 5 rows, and prices are
+  re-derived server-side on every write. `--checkout` returns a Stripe URL and
+  charges nothing. `marketplace:requests` is the "Ask" side: what one of your
+  verified websites wants from others, and what you'll pay for it (`--budget`
+  is in dollars).
+- **Earn** (`earn:*`): your websites as publishers. A website must be verified
+  to join, and joining lands in `pending` for human approval. `--status paused`
+  stops new work without leaving. Assignments carry the target URL, anchor,
+  brief, payout, and deadline; declining is free and expected when a placement
+  does not fit. `--live` is what gets you paid, and the page is checked for the
+  link before the placement is marked verified. Earnings are USD minor units:
+  `pending` is accepted work not yet due, `due` is waiting on the next payout
+  run, `paid` is settled.
+- **Inbox** (`inbox:*`): partnership conversations, same threads as the
+  dashboard, with the unread count the sidebar badge reads. A reply is mailed to
+  a real person as you. Draft and send on the user's word rather than answering
+  their inbox for them.
 
 ## Output
 
@@ -231,33 +328,40 @@ npx skills add VerifiedDR/verifieddr-cli
 After installing the skills, ask for one of these outcomes instead of memorizing
 commands:
 
-1. **Growth Loop:** find the TrueDR gap, check the detailed actions, review
-   weak backlink evidence, pick one partner move, and end with the command to
-   approve.
-2. **Partner Outreach:** find one verified partner, preview the outreach with
+1. **AI Visibility Loop:** read the score, find the questions where a rival is
+   named and you are not, tune the tracked questions, re-run, and compare the
+   two runs.
+2. **Growth Loop:** generate the plan, work the highest-impact task, and close
+   it from the CLI.
+3. **Partner Outreach:** find one verified partner, preview the outreach with
    `--dry-run`, then send only after approval.
-3. **Progress Report:** check TrueDR and DR movement, review weak backlink
-   evidence, choose one next action, and write a founder or client-ready update.
-4. **Fix Weak Authority Signals:** inspect the owner-scoped signal breakdown
+4. **Progress Report:** compare two AI Visibility runs, check TrueDR and DR
+   movement, and write a founder or client-ready update.
+5. **Fix Weak Trust Signals:** inspect the owner-scoped signal breakdown
    and choose the relevant fix.
-5. **Monitor Metrics:** set a recurring authority check for DR, TrueDR, traffic
+6. **Monitor Metrics:** set a recurring check for DR, TrueDR, traffic
    validation, backlink deltas, and trust alerts.
-6. **Publish an SEO Article:** run the gated publish pipeline — pick a keyword
+7. **Publish an SEO Article:** run the gated publish pipeline: pick a keyword
    from the research-built backlog, validate every product claim, draft, run
    anti-slop passes, and publish only above the quality threshold.
 
 Example prompts:
 
 ```text
-Run the VerifiedDR growth loop for example.com.
-Analyze the TrueDR gap, then run `vdr sites:truedr example.com --detailed` to
-check the owner-scoped recommendations and weakest backlink evidence. Then
-choose the best partner opportunity, draft the outreach angle, and end with the
-exact command I should approve next.
+Improve AI visibility for example.com.
+Read the stored snapshot, list the questions where a competitor is cited and we
+are not, propose replacement questions buyers actually ask, apply the ones I
+approve, then run a fresh scan and tell me what moved.
 ```
 
 ```text
-Act as my authority coach for example.com.
+Run the VerifiedDR growth loop for example.com.
+Generate a growth plan, tell me the single highest-impact task and why, then
+mark it done once I confirm I have shipped it.
+```
+
+```text
+Act as my visibility coach for example.com.
 Use VerifiedDR to diagnose why TrueDR is lower than DR, rank the top fixes by
 impact and effort, and make verified partner outreach the next action when it is
 the fastest path.
@@ -265,7 +369,7 @@ the fastest path.
 
 ```text
 Review example.com every week with VerifiedDR.
-Check whether TrueDR is improving, review the weakest public backlink evidence,
+Compare the last two AI Visibility runs, check whether TrueDR is improving,
 find the next partnership opportunity, and write a clear progress update.
 ```
 

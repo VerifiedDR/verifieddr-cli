@@ -1,7 +1,7 @@
 {
 	"name": "verifieddr",
-	"version": "0.7.0",
-	"description": "CLI for the VerifiedDR API — diagnose TrueDR gaps, find verified partner opportunities, and monitor authority changes.",
+	"version": "0.8.0",
+	"description": "CLI for the VerifiedDR API: track how often ChatGPT, Perplexity, and Google AI Mode mention your site, tune the questions they are asked, work a generated growth plan, and diagnose TrueDR gaps.",
 	"type": "module",
 	"bin": {
 		"vdr": "dist/cli.js",
@@ -29,7 +29,8 @@
 		"seo",
 		"backlinks",
 		"trust-score",
-		"authority",
+		"visibility",
+		"ai-visibility",
 		"cli"
 	],
 	"license": "MIT",

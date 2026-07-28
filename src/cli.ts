@@ -125,32 +125,94 @@ function apiKey(args: string[]): string | undefined {
 }
 
 const VALUE_FLAGS = new Set([
+	"--about",
+	"--accept",
 	"--add",
+	"--add-package",
 	"--add-prompt",
+	"--add-site",
+	"--anchor",
 	"--base",
+	"--body",
+	"--brief",
+	"--budget",
 	"--category",
 	"--contact",
+	"--decline",
 	"--description",
 	"--domain",
+	"--formats",
+	"--from",
 	"--goal",
+	"--id",
 	"--indexnow-key",
 	"--key",
 	"--key-location",
 	"--limit",
+	"--live",
+	"--location",
+	"--max-placements",
 	"--message",
 	"--min-spam",
 	"--min-dr",
 	"--min-truedr",
+	"--offset",
 	"--opportunities-for",
 	"--range",
+	"--reason",
 	"--refresh",
 	"--remove",
 	"--remove-prompt",
+	"--reply",
+	"--set-location",
+	"--status",
 	"--subject",
+	"--talking-points",
+	"--target-url",
+	"--task",
 	"--title",
+	"--to",
+	"--turnaround",
 	"--type",
+	"--url",
 	"--xhandle",
 ]);
+
+/**
+ * Every value a repeatable flag was given, in order. `--target-url a
+ * --target-url b` is how a brief names more than one page; `option()` would
+ * only ever see the first.
+ */
+function options(args: string[], name: string): string[] {
+	const values: string[] = [];
+	for (let i = 0; i < args.length; i += 1) {
+		if (args[i] === name && args[i + 1] !== undefined) values.push(args[i + 1]);
+	}
+	return values;
+}
+
+/**
+ * The brief a placement is written from: which pages to link, how the anchor
+ * should read, and what the publisher should know about the company.
+ *
+ * Null when the caller passed none of it, so the same flags can mean "brief
+ * this" on one command and "just show me the cart" on another.
+ */
+function cartBrief(args: string[]): Json | null {
+	const targetUrls = options(args, "--target-url");
+	const anchorPrefs = option(args, "--anchor") ?? "";
+	const companyDescription = option(args, "--about") ?? "";
+	const talkingPoints = option(args, "--talking-points") ?? "";
+	if (
+		targetUrls.length === 0 &&
+		!anchorPrefs &&
+		!companyDescription &&
+		!talkingPoints
+	) {
+		return null;
+	}
+	return { targetUrls, anchorPrefs, companyDescription, talkingPoints };
+}
 
 function positionalArgs(args: string[]): string[] {
 	const positional: string[] = [];
@@ -184,6 +246,13 @@ const DEFAULT_TIMEOUT_MS = 20000;
 // A fresh index audit inspects up to 40 URLs against Google's URL Inspection
 // API server-side, which routinely takes longer than the default timeout.
 const GSC_AUDIT_RUN_TIMEOUT_MS = 180000;
+// A full AI Visibility run asks every tracked question on ChatGPT, Perplexity,
+// and Google AI Mode and waits for all of them, so it is the slowest call the
+// CLI makes. Timing out client-side would not stop the run or refund it.
+const AI_VISIBILITY_RUN_TIMEOUT_MS = 300000;
+// A growth run recomputes trust, the backlink map, benchmark link gaps, and
+// the task list in one request.
+const GROWTH_RUN_TIMEOUT_MS = 120000;
 
 async function request(
 	args: string[],
@@ -231,7 +300,7 @@ async function requestResult(
 	const key = apiKey(args);
 	if (requireKey && !key) {
 		fail(
-			"Missing API key. Set VERIFIEDDR_API_KEY=vdr_... or pass --key vdr_.... Create one free in your VerifiedDR dashboard. Free includes 10 calls/day; Pro includes 1,000 calls/month; Agency includes 10,000 calls/month.",
+			"Missing API key. Set VERIFIEDDR_API_KEY=vdr_... or pass --key vdr_.... Your key is in your VerifiedDR dashboard under API. The API needs a paid plan: Pro includes 1,000 calls/month, Max 5,000, Ultra 10,000. A free key authenticates, but every call answers 402.",
 			3,
 		);
 	}
@@ -288,14 +357,48 @@ function encode(value: string): string {
 	return encodeURIComponent(value.trim().toLowerCase());
 }
 
-const USAGE = `VerifiedDR CLI: authority and trust data over the VerifiedDR API.
+const USAGE = `VerifiedDR CLI: AI visibility, keyword, and trust data over the VerifiedDR API.
 
 Quickstart:
   npx skills add VerifiedDR/verifieddr-cli   # install the agent skills
   npm install -g verifieddr                    # install the CLI
-  export VERIFIEDDR_API_KEY=vdr_your_key       # free key in your dashboard
-  vdr analyze verifieddr.com                   # score + next actions
-  vdr next verifieddr.com                      # best next partner/action
+  export VERIFIEDDR_API_KEY=vdr_your_key       # your key, dashboard > API
+  vdr account:usage                            # plan, prompt budget, API quota
+  vdr sites:visibility <domain>                # who AI answers name, and why
+  vdr analyze <domain>                         # score + next actions
+
+The API needs a paid plan (Pro 1,000 calls/month, Max 5,000, Ultra 10,000).
+A free key authenticates, but every call answers 402.
+
+AI Visibility (your own sites):
+  vdr sites:visibility <domain>          How often ChatGPT, Perplexity, and
+                                         Google AI Mode mention your site:
+                                         score, per-question answers, the
+                                         brands beating you, cited pages
+  vdr sites:visibility <domain> --run    Ask the questions now. Spends a run
+                                         (paid plans, 1 per site per week)
+  vdr sites:visibility <domain> --from <iso> --to <iso>
+                                         Diff two stored runs: score, brands
+                                         gained/lost, questions that flipped
+  vdr sites:visibility <domain> --add-prompt "<question>" [--location <code>]
+                                         Track a new question, optionally
+                                         asked from one country
+  vdr sites:visibility <domain> --import "<q1>" "<q2>" [--location <code>]
+                                         Track several at once
+  vdr sites:visibility <domain> --set-location <id> --location <code>
+                                         Re-target one tracked question
+  vdr sites:visibility <domain> --remove-prompt <id>
+                                         Stop tracking a question
+  vdr sites:visibility <domain> --reset-prompts
+                                         Reseed questions from your keywords
+
+Growth plan (your own sites):
+  vdr growth:tasks <domain>              The generated plan: ranked tasks with
+                                         impact, why, next step, benchmarks
+  vdr growth:tasks <domain> --run        Generate a fresh plan (paid plans;
+                                         finished tasks carry over)
+  vdr growth:tasks <domain> --task <id> --status <todo|in_progress|blocked|done>
+                                         Move one task after you did the work
 
 Coach commands:
   vdr analyze <domain>                   Score, main issue, top actions
@@ -305,12 +408,11 @@ Coach commands:
   vdr opportunities <domain> --contact <slug> --dry-run   Preview drafted mail to a partner
   vdr opportunities <domain> --contact <slug> --approve   Send the previewed draft
   vdr audit backlinks <domain>           Backlink risk review
-  vdr content-plan <domain>              Authority-supporting page plan
-  vdr fix <domain> [--goal +10]          30/60/90-day TrueDR growth plan
-  vdr track <domain>                     TrueDR trend signals
   vdr explain <domain>                   Client/founder-ready explanation
-  vdr boost <domain>                     Recommended campaign
-  vdr next <domain>                      Best next partner/action
+  vdr next <domain>                      Best next action, partner included
+
+  analyze and next read your AI Visibility score first when the domain is one
+  of your sites, so the top action reflects AI answers, not just backlinks.
 
 API commands (any approved site):
   vdr authority:lookup <domain>          DR, TrueDR, trust score, evidence
@@ -319,15 +421,55 @@ API commands (any approved site):
   vdr badge:snippets <domain>            Badge / embed snippets
   vdr categories:list                    Valid category values
 
-Keyword research (Advanced/Ultra plans):
+Marketplace (buy links):
+  vdr marketplace:packages               Backlink Packages, priced for you, with
+                                         the exact websites in each
+  vdr marketplace:sites [--limit n]      Single-website listings, your niche first
+  vdr marketplace:cart                   Your open cart
+  vdr marketplace:cart --add-package <id>
+  vdr marketplace:cart --add-site <websiteId>
+  vdr marketplace:cart --remove <index>
+  vdr marketplace:cart --checkout        Print a Stripe URL. A human pays; the
+                                         CLI never charges a card
+  vdr marketplace:orders                 Your orders + placement status
+  vdr marketplace:orders --brief <orderNo> --target-url <url> [--anchor <text>]
+                         [--about <text>] [--talking-points <text>]
+                                         Brief a paid order (repeat --target-url)
+  vdr marketplace:requests <domain>      What this website asks others for
+  vdr marketplace:requests <domain> --title <t> --description <d> [--budget 250]
+  vdr marketplace:requests <domain> --remove <id>
+
+Earn (sell links on your websites):
+  vdr earn:sites                         Your websites + what each earns
+  vdr earn:sites <domain> --join --accept-terms
+                         [--formats guest_post,niche_edit,homepage]
+                         [--turnaround 7] [--max-placements 4]
+  vdr earn:sites <domain> --status <active|paused|removed>
+  vdr earn:assignments                   Work assigned to your websites
+  vdr earn:assignments --accept <placementId>
+  vdr earn:assignments --decline <placementId> [--reason <text>]
+  vdr earn:assignments --live <placementId> --url <published page>
+  vdr earn:earnings                      Pending, due, and paid
+
+Inbox:
+  vdr inbox:list [--limit n] [--offset n] Partnership conversations + unread
+  vdr inbox:thread <id>                  One conversation with its messages
+  vdr inbox:thread <id> --reply "<text>" Send a reply as you
+  vdr inbox:thread <id> --read           Mark it read
+
+Account:
+  vdr account:usage                      Plan, AI prompt budget (account-wide),
+                                         API quota, and what your plan includes
+
+Keyword research (any paid plan):
   vdr keywords:research "<keyword>" [--domain <yours>]
                                          DR the Google top 10 demands; with
                                          --domain also your gap and verdict
   vdr keywords:suggest <domain>          Winnable keywords the domain already
                                          ranks 4-30 for (any domain)
   vdr keywords:tracked <domain>          Your saved keyword targets with stored
-                                         difficulty snapshots (own sites; free,
-                                         reads stored data only)
+                                         difficulty snapshots (own sites; reads
+                                         stored data only, no SERP fetch)
   vdr keywords:tracked <domain> --add "<keyword>"
                                          Track a new keyword (snapshots its SERP)
   vdr keywords:tracked <domain> --refresh <id>
@@ -339,16 +481,6 @@ Your own sites (owner-scoped):
   vdr sites:list                         List your sites + metrics
   vdr sites:get <domain>                 One of your sites with DR/traffic trends
   vdr sites:truedr <domain> [--detailed] Your site's TrueDR (+ signal breakdown)
-  vdr sites:visibility <domain>          AI Visibility: how often ChatGPT,
-                                         Perplexity, and Google AI Mode mention
-                                         your site (stored snapshot + history)
-  vdr sites:visibility <domain> --add-prompt "<question>"
-                                         Track a new AI question (next refresh
-                                         picks it up; Pro/Ultra)
-  vdr sites:visibility <domain> --remove-prompt <id>
-                                         Stop tracking a question
-  vdr sites:visibility <domain> --reset-prompts
-                                         Reseed questions from your keywords
   vdr sites:export <domain>              Machine-readable export of your site
   vdr sites:monitor [<domain>] [--daily] Watch changes + trust alerts
   vdr sites:submit <url> [--title --description --category --xhandle]
@@ -391,12 +523,14 @@ const ALIASES: Record<string, string> = {
 	actions: "coach:actions",
 	opportunities: "coach:opportunities",
 	audit: "coach:audit",
+	explain: "coach:explain",
+	next: "coach:next",
+	// Kept only so the cut verbs resolve to their REMOVED_COMMANDS entry and
+	// get a replacement instead of a bare "Unknown command".
 	"content-plan": "coach:content-plan",
 	fix: "coach:fix",
 	track: "coach:track",
-	explain: "coach:explain",
 	boost: "coach:boost",
-	next: "coach:next",
 	lookup: "authority:lookup",
 	map: "authority:map",
 	find: "discover:find",
@@ -405,6 +539,19 @@ const ALIASES: Record<string, string> = {
 	truedr: "sites:truedr",
 	visibility: "sites:visibility",
 	"ai-visibility": "sites:visibility",
+	growth: "growth:tasks",
+	tasks: "growth:tasks",
+	usage: "account:usage",
+	marketplace: "marketplace:packages",
+	packages: "marketplace:packages",
+	cart: "marketplace:cart",
+	orders: "marketplace:orders",
+	requests: "marketplace:requests",
+	earn: "earn:sites",
+	assignments: "earn:assignments",
+	earnings: "earn:earnings",
+	inbox: "inbox:list",
+	thread: "inbox:thread",
 	export: "sites:export",
 	monitor: "sites:monitor",
 	submit: "sites:submit",
@@ -415,6 +562,23 @@ const ALIASES: Record<string, string> = {
 	categories: "categories:list",
 	keywords: "keywords:research",
 	keyword: "keywords:research",
+};
+
+/**
+ * Commands that were cut in 0.8.0, and what replaced them.
+ *
+ * They were templates: `fix`, `boost`, and `content-plan` reprinted the same
+ * ranked action list under different headings, and `track` reprinted the
+ * change fields `sites:monitor` reports with real deltas. A removed command
+ * says so and names its replacement rather than 404-ing an agent mid-loop;
+ * silently aliasing them would keep handing back the filler they were cut for.
+ */
+const REMOVED_COMMANDS: Record<string, string> = {
+	"coach:fix": "vdr growth:tasks <domain> --run (a real, tracked plan)",
+	"coach:boost": "vdr actions <domain>, or vdr growth:tasks <domain> --run",
+	"coach:content-plan":
+		"vdr growth:tasks <domain> --run, or vdr keywords:suggest <domain>",
+	"coach:track": "vdr sites:monitor <domain>",
 };
 
 type Lookup = {
@@ -576,6 +740,79 @@ type CoachAction = {
 	run: string;
 };
 
+/**
+ * What the coach knows about a domain's AI visibility. Only its own sites can
+ * have one: the snapshot is owner-scoped, so a competitor lookup is always
+ * `null` and the coach falls back to link and traffic advice.
+ */
+type VisibilitySignal = {
+	/** 0-100 share of answers that named the site; null before the first run. */
+	score: number | null;
+	mentionedAnswers: number | null;
+	totalAnswers: number | null;
+	/** Brands named more often than this site, strongest first. */
+	aheadOfYou: string[];
+	promptCount: number;
+	hasRun: boolean;
+	/** Free plan: the questions exist but no run can be bought. */
+	locked: boolean;
+};
+
+/**
+ * Read the owner-scoped AI Visibility snapshot, or null when the domain is not
+ * one of the key owner's sites (404), the plan cannot see it, or the call
+ * fails for any other reason.
+ *
+ * Costs one quota unit, so only the two "what should I do" commands call it.
+ * Advice that ignores the score would be advice about the wrong product: what
+ * the plan meters, and what the guarantee is written against, is AI answers.
+ */
+async function visibilitySignal(
+	args: string[],
+	domain: string,
+): Promise<VisibilitySignal | null> {
+	let data: Json;
+	try {
+		data = (
+			await requestResult(
+				args,
+				"GET",
+				`/api/v1/sites/${encode(domain)}/ai-visibility`,
+				undefined,
+				true,
+				false,
+				true,
+			)
+		).data;
+	} catch {
+		return null;
+	}
+
+	const snapshot = (data.snapshot ?? null) as {
+		score?: number;
+		mentionedAnswers?: number;
+		totalAnswers?: number;
+		brands?: Array<{ name?: string; isUser?: boolean; count?: number }>;
+	} | null;
+	const prompts = Array.isArray(data.prompts) ? data.prompts : [];
+	const brands = snapshot?.brands ?? [];
+	const ownCount = brands.find((brand) => brand.isUser === true)?.count ?? 0;
+
+	return {
+		score: num(snapshot?.score),
+		mentionedAnswers: num(snapshot?.mentionedAnswers),
+		totalAnswers: num(snapshot?.totalAnswers),
+		aheadOfYou: brands
+			.filter((brand) => brand.isUser !== true && (brand.count ?? 0) > ownCount)
+			.map((brand) => brand.name)
+			.filter((brand): brand is string => typeof brand === "string")
+			.slice(0, 3),
+		promptCount: prompts.length,
+		hasRun: snapshot != null,
+		locked: data.locked === true,
+	};
+}
+
 async function lookupContext(args: string[]): Promise<LookupContext> {
 	const result = await requestResult(
 		args,
@@ -584,7 +821,7 @@ async function lookupContext(args: string[]): Promise<LookupContext> {
 	);
 	const lookup = result.data.lookup;
 	if (!lookup || typeof lookup !== "object") {
-		fail("Lookup response did not include authority data.", 6);
+		fail("Lookup response did not include site data.", 6);
 	}
 	return { lookup: lookup as Lookup, tier: result.tier };
 }
@@ -632,7 +869,7 @@ function mainIssue(lookup: Lookup): string {
 	if (gap != null && gap < 0) {
 		return "TrueDR trails DR because the supporting evidence is weaker than the headline score.";
 	}
-	return "TrueDR is broadly aligned with the available authority evidence.";
+	return "TrueDR is broadly aligned with the available trust and traffic evidence.";
 }
 
 function actionPriority(action: CoachAction): number {
@@ -641,12 +878,69 @@ function actionPriority(action: CoachAction): number {
 	return action.impactScore + effortBonus + confidenceBonus;
 }
 
-function coachActions(lookup: Lookup): CoachAction[] {
+function coachActions(
+	lookup: Lookup,
+	visibility?: VisibilitySignal | null,
+): CoachAction[] {
 	const domain = lookup.domain || "domain.com";
 	const actions: CoachAction[] = [];
 	const referringDomains = num(lookup.evidence?.referringDomains);
 	const trust = num(lookup.authority?.trustScore);
 	const confidence = lookup.authority?.confidence;
+
+	// AI answers first when we can see them. Everything below this is link and
+	// traffic work, which moves TrueDR; being absent from the answers people
+	// actually read is the more expensive problem, so a real score outranks it.
+	if (visibility) {
+		const answered =
+			visibility.mentionedAnswers != null && visibility.totalAnswers != null
+				? `${visibility.mentionedAnswers} of ${visibility.totalAnswers} answers`
+				: null;
+		const rivals = visibility.aheadOfYou.length
+			? ` ${visibility.aheadOfYou.join(", ")} ${visibility.aheadOfYou.length === 1 ? "is" : "are"} named more often.`
+			: "";
+
+		if (!visibility.hasRun) {
+			actions.push({
+				title: visibility.locked
+					? "Unlock AI Visibility and take a first reading"
+					: "Run your first AI Visibility scan",
+				detail: visibility.locked
+					? `The site tracks ${visibility.promptCount} question${visibility.promptCount === 1 ? "" : "s"}, but a free plan never asks them. A paid plan asks all of them on ChatGPT, Perplexity, and Google AI Mode every day.`
+					: `Nothing is measured yet: ${visibility.promptCount} question${visibility.promptCount === 1 ? " is" : "s are"} tracked and no run has asked them.`,
+				impact:
+					"Unknown until measured, and everything else here is guesswork without it",
+				impactScore: 10,
+				effort: "low",
+				confidence: "high",
+				run: `vdr sites:visibility ${domain} --run`,
+			});
+		} else if (visibility.score != null && visibility.score < 35) {
+			actions.push({
+				title: "Fix weak AI visibility before chasing more links",
+				detail: `AI answers name this site in ${answered ?? "few answers"}.${rivals} Start with the questions where a rival is cited and the site is not.`,
+				impact: "High, this is the metric the plan meters and guarantees",
+				// Above partner outreach on purpose. Outreach scores 14 (9 + low
+				// effort + high confidence), and fixing this is medium effort, so
+				// anything under 12 here would sort a weak score below link work
+				// and quietly contradict what the ladder is supposed to say.
+				impactScore: 12,
+				effort: "medium",
+				confidence: "high",
+				run: `vdr sites:visibility ${domain}`,
+			});
+		} else if (visibility.score != null && visibility.score < 70) {
+			actions.push({
+				title: "Widen the questions that already mention you",
+				detail: `AI answers name this site in ${answered ?? "some answers"}.${rivals} Add the adjacent questions buyers ask, then re-run.`,
+				impact: "Medium to high, more answers naming the site on the same spend",
+				impactScore: 7,
+				effort: "low",
+				confidence: "high",
+				run: `vdr sites:visibility ${domain} --add-prompt "<question>"`,
+			});
+		}
+	}
 
 	actions.push({
 		title: "Contact one verified partner",
@@ -688,12 +982,12 @@ function coachActions(lookup: Lookup): CoachAction[] {
 	if (trafficWeak(lookup)) {
 		actions.push({
 			title: "Improve traffic validation",
-			detail: "The authority score is not backed by enough visible organic traffic.",
+			detail: "The site's DR is not backed by enough visible organic traffic.",
 			impact: "High, roughly +3 to +8 TrueDR when organic traffic evidence improves",
 			impactScore: 8,
 			effort: "high",
 			confidence: "medium",
-			run: `vdr content-plan ${domain}`,
+			run: `vdr keywords:suggest ${domain}`,
 		});
 	}
 
@@ -706,20 +1000,20 @@ function coachActions(lookup: Lookup): CoachAction[] {
 			impactScore: 4,
 			effort: "medium",
 			confidence: "medium",
-			run: `vdr track ${domain}`,
+			run: `vdr sites:monitor ${domain}`,
 		});
 	}
 
 	if (actions.length === 0) {
 		actions.push({
-			title: "Protect the current authority base",
+			title: "Protect the current backlink base",
 			detail:
 				"Monitor weekly changes and add only relevant links that reinforce the site's category.",
-			impact: "Low, roughly +1 to +3 TrueDR from steady relevant authority gains",
+			impact: "Low, roughly +1 to +3 TrueDR from steady gains in relevant trusted backlinks",
 			impactScore: 3,
 			effort: "low",
 			confidence: "medium",
-			run: `vdr track ${domain}`,
+			run: `vdr sites:monitor ${domain}`,
 		});
 	}
 
@@ -852,9 +1146,21 @@ function printScoreBlock(lookup: Lookup): void {
 	]);
 }
 
-function coachAnalyze(lookup: Lookup): void {
-	const actions = coachActions(lookup).slice(0, 3);
+function coachAnalyze(
+	lookup: Lookup,
+	visibility?: VisibilitySignal | null,
+): void {
+	const actions = coachActions(lookup, visibility).slice(0, 3);
 	printScoreBlock(lookup);
+	if (visibility?.hasRun && visibility.score != null) {
+		printLines([
+			`AI Visibility: ${Math.round(visibility.score)} / 100${
+				visibility.mentionedAnswers != null && visibility.totalAnswers != null
+					? ` (${visibility.mentionedAnswers}/${visibility.totalAnswers} answers)`
+					: ""
+			}`,
+		]);
+	}
 	printLines(["", "Main issue:", mainIssue(lookup), "", "Top actions:"]);
 	actions.forEach((action, index) => {
 		printLines([
@@ -1018,11 +1324,11 @@ function draftOutreach(
 	const fit =
 		reasons.length > 0
 			? `I found ${targetName} through VerifiedDR's partner matching: ${reasons.join("; ").replace(/[.\s]+$/, "")}.`
-			: "VerifiedDR matched our sites as a partnership fit based on category and authority overlap.";
+			: "VerifiedDR matched our sites as a partnership fit based on category overlap and comparable TrueDR.";
 	const angle = candidate?.opportunity?.type?.trim().toLowerCase();
 	const proposal =
 		angle && angle !== "partnership"
-			? `I'd like to explore ${/^[aeiou]/.test(angle) ? "an" : "a"} ${angle} between ${targetName} and ${domain} — or a mutual mention or content collaboration, whatever fits best on your side.`
+			? `I'd like to explore ${/^[aeiou]/.test(angle) ? "an" : "a"} ${angle} between ${targetName} and ${domain}, or a mutual mention or content collaboration, whatever fits best on your side.`
 			: "I'd like to explore a co-marketing swap: a mutual mention, a content collaboration, or an integration, whatever fits best on your side.";
 	return {
 		subject: `Partnership idea: ${domain} x ${targetName}`,
@@ -1216,7 +1522,7 @@ async function coachOpportunities(
 		type === "all" || type === "backlinks"
 			? `Backlink risk review: ${
 					trust != null && trust < 60
-						? "aggregate trust is weak, so review irrelevant or low-authority patterns before scaling outreach."
+						? "aggregate trust is weak, so review irrelevant or low-trust patterns before scaling outreach."
 						: "keep new links relevant so the trust score does not lag DR."
 				}`
 			: null,
@@ -1282,46 +1588,6 @@ async function coachOpportunities(
 	printLines(lines);
 }
 
-function coachFix(lookup: Lookup, args: string[]): void {
-	const domain = lookup.domain || domainArg(args);
-	const goal = option(args, "--goal") || "+10";
-	const actions = coachActions(lookup);
-	printLines([
-		`30/60/90-day TrueDR growth plan for ${domain}`,
-		`Goal: ${goal} TrueDR`,
-		"",
-		"First 30 days:",
-		`- ${actions[0]?.title || "Find the highest-impact authority gap"}`,
-		`- Run: ${actions[0]?.run || `vdr next ${domain}`}`,
-		"",
-		"Days 31-60:",
-		`- ${actions[1]?.title || "Build relevant partner and directory links"}`,
-		`- Run: ${actions[1]?.run || `vdr opportunities ${domain}`}`,
-		"",
-		"Days 61-90:",
-		`- ${actions[2]?.title || "Validate progress and remove remaining weak signals"}`,
-		`- Run: ${actions[2]?.run || `vdr track ${domain}`}`,
-		"",
-		"Heuristic result:",
-		"Meaningful TrueDR lift if the links are relevant, traffic improves, and weak signals are reduced.",
-	]);
-}
-
-function coachTrack(lookup: Lookup): void {
-	const changes = lookup.changes ?? {};
-	printLines([
-		`Tracking ${lookup.domain || "domain"}:`,
-		`TrueDR weekly: ${changes.trueDrWeeklyChange == null ? "unknown" : signed(changes.trueDrWeeklyChange)}`,
-		`TrueDR monthly: ${changes.trueDrMonthlyChange == null ? "unknown" : signed(changes.trueDrMonthlyChange)}`,
-		`DR weekly: ${changes.drWeeklyChange == null ? "unknown" : signed(changes.drWeeklyChange)}`,
-		`Traffic change: ${changes.trafficChange == null ? "unknown" : signed(changes.trafficChange)}`,
-		"",
-		changes.trueDrWeeklyChange != null && changes.trueDrWeeklyChange > 0
-			? "Verdict: recent actions appear to be improving TrueDR."
-			: "Verdict: no clear TrueDR lift is visible in the latest stored changes yet.",
-		`Next: ${coachActions(lookup)[0]?.run}`,
-	]);
-}
 
 function coachExplain(lookup: Lookup): void {
 	const domain = lookup.domain || "this site";
@@ -1330,7 +1596,7 @@ function coachExplain(lookup: Lookup): void {
 	const gap = gapOf(lookup);
 	printLines([
 		`${domain} has a DR of ${dr}, but its VerifiedDR TrueDR is ${trueDr}.`,
-		`That ${gap == null ? "gap" : `${signed(gap)} point gap`} means the headline authority score is ${
+		`That ${gap == null ? "gap" : `${signed(gap)} point gap`} means the headline DR is ${
 			gap != null && gap < 0 ? "stronger than" : "close to"
 		} the supporting evidence from traffic, backlink quality, and trust signals.`,
 		"",
@@ -1338,23 +1604,6 @@ function coachExplain(lookup: Lookup): void {
 		"",
 		`Recommended next step: ${coachActions(lookup)[0]?.title}.`,
 		`Run: ${coachActions(lookup)[0]?.run}`,
-	]);
-}
-
-function coachBoost(lookup: Lookup): void {
-	const domain = lookup.domain || "domain";
-	const actions = coachActions(lookup).slice(0, 4);
-	printLines([
-		`Recommended campaign for ${domain}:`,
-		...actions.map((action) => action.title),
-		actions.length < 4
-			? "Build 3 partner links from customers, integrations, or portfolio pages"
-			: null,
-		"",
-		"Heuristic result:",
-		"Medium to high TrueDR lift in 90 days if execution creates relevant links and stronger traffic evidence.",
-		"",
-		`Start with: ${coachActions(lookup)[0]?.run}`,
 	]);
 }
 
@@ -1370,7 +1619,7 @@ function coachAuditBacklinks(lookup: Lookup): void {
 		`Referring domains: ${referringDomains == null ? "unknown" : referringDomains}`,
 		"",
 		trust != null && trust < 60
-			? "Risk: aggregate trust is weak enough to review irrelevant, spam-like, or low-authority referring domains."
+			? "Risk: aggregate trust is weak enough to review irrelevant, spam-like, or low-trust referring domains."
 			: "Risk: no major aggregate backlink risk is visible from the public lookup data.",
 		"Note: full per-signal backlink risk detail is available only on owner-scoped TrueDR data.",
 		"",
@@ -1397,35 +1646,12 @@ function coachAuditBacklinks(lookup: Lookup): void {
 	]);
 }
 
-function coachContentPlan(lookup: Lookup): void {
-	const domain = lookup.domain || "domain";
-	const traffic = num(lookup.evidence?.traffic);
-	const trafficLine =
-		traffic == null
-			? "Traffic evidence is unknown, so start with pages that can validate organic demand."
-			: `Current traffic evidence is ${traffic}, so prioritize pages that can compound organic discovery.`;
-	printLines([
-		`Authority content plan for ${domain}:`,
-		trafficLine,
-		"",
-		"1. Publish one comparison or alternatives page targeting a high-intent category query.",
-		"   Heuristic impact: supports organic traffic validation.",
-		"",
-		"2. Publish two integration, template, or workflow pages that partners can link to naturally.",
-		"   Heuristic impact: improves relevant referring domains.",
-		"",
-		"3. Publish one original data or benchmark page that deserves editorial citations.",
-		"   Heuristic impact: creates a stronger reason for quality backlinks.",
-		"",
-		`Track it: vdr track ${domain}`,
-	]);
-}
-
 async function coachNext(
 	lookup: Lookup,
 	args: string[],
+	visibility?: VisibilitySignal | null,
 ): Promise<void> {
-	const action = coachActions(lookup)[0];
+	const action = coachActions(lookup, visibility)[0];
 	const domain = lookup.domain || commandDomainArg(args);
 	const partnerCandidates = action?.run.startsWith("vdr opportunities ")
 		? ((await partnershipCandidates(lookup, args)) ?? [])
@@ -1611,7 +1837,10 @@ async function coach(command: string, args: string[]): Promise<void> {
 	const { lookup } = context;
 	switch (command) {
 		case "coach:analyze":
-			return coachAnalyze(lookup);
+			return coachAnalyze(
+				lookup,
+				await visibilitySignal(args, commandDomainArg(args)),
+			);
 		case "coach:diagnose":
 			return coachDiagnose(lookup);
 		case "coach:actions":
@@ -1620,18 +1849,14 @@ async function coach(command: string, args: string[]): Promise<void> {
 			return coachOpportunities(lookup, args);
 		case "coach:audit":
 			return coachAuditBacklinks(lookup);
-		case "coach:content-plan":
-			return coachContentPlan(lookup);
-		case "coach:fix":
-			return coachFix(lookup, args);
-		case "coach:track":
-			return coachTrack(lookup);
 		case "coach:explain":
 			return coachExplain(lookup);
-		case "coach:boost":
-			return coachBoost(lookup);
 		case "coach:next":
-			return coachNext(lookup, args);
+			return coachNext(
+				lookup,
+				args,
+				await visibilitySignal(args, commandDomainArg(args)),
+			);
 		default:
 			fail(`Unknown coach command: ${command}`, 2);
 	}
@@ -1641,17 +1866,20 @@ async function main(): Promise<void> {
 	const [rawCommand, ...args] = process.argv.slice(2);
 	const command = rawCommand ? (ALIASES[rawCommand] ?? rawCommand) : rawCommand;
 
+	if (command && REMOVED_COMMANDS[command]) {
+		fail(
+			`\`${rawCommand}\` was removed in 0.8.0: it printed a template, not data. Use ${REMOVED_COMMANDS[command]}.`,
+			2,
+		);
+	}
+
 	switch (command) {
 		case "coach:analyze":
 		case "coach:diagnose":
 		case "coach:actions":
 		case "coach:opportunities":
 		case "coach:audit":
-		case "coach:content-plan":
-		case "coach:fix":
-		case "coach:track":
 		case "coach:explain":
-		case "coach:boost":
 		case "coach:next":
 			return coach(command, args);
 		case "authority:lookup":
@@ -1682,26 +1910,321 @@ async function main(): Promise<void> {
 		}
 		case "sites:visibility": {
 			const domain = encode(domainArg(args));
+			const path = `/api/v1/sites/${domain}/ai-visibility`;
+			const location = option(args, "--location");
+
+			// The one branch that reaches ChatGPT, Perplexity, and Google AI Mode,
+			// so it is also the one that waits: a full run buys an answer per
+			// question per platform.
+			if (flag(args, "--run")) {
+				return request(
+					args,
+					"POST",
+					path,
+					{ action: "run" },
+					true,
+					AI_VISIBILITY_RUN_TIMEOUT_MS,
+				);
+			}
+
+			const from = option(args, "--from");
+			const to = option(args, "--to");
+			if (from || to) {
+				if (!from || !to) {
+					fail(
+						"Comparing runs needs both --from <iso> and --to <iso>. The timestamps are the `at` values in the snapshot's history.",
+						2,
+					);
+				}
+				const q = new URLSearchParams({ from, to });
+				return request(args, "GET", `${path}?${q}`);
+			}
+
 			const addPrompt = option(args, "--add-prompt");
 			if (addPrompt) {
-				return request(args, "POST", `/api/v1/sites/${domain}/ai-visibility`, {
+				return request(args, "POST", path, {
 					prompt: addPrompt,
+					...(location ? { location } : {}),
 				});
 			}
+
+			// Everything after the domain is a question, so a shell loop or an
+			// agent can paste a list without quoting it into one string.
+			if (flag(args, "--import")) {
+				const prompts = positionalArgs(args).slice(1);
+				if (prompts.length === 0) {
+					fail(
+						'--import needs at least one question, e.g. vdr sites:visibility example.com --import "best crm for agencies" "crm with client portal"',
+						2,
+					);
+				}
+				return request(args, "POST", path, {
+					action: "import",
+					prompts,
+					...(location ? { location } : {}),
+				});
+			}
+
+			const setLocation = option(args, "--set-location");
+			if (setLocation) {
+				if (!location) {
+					fail(
+						"--set-location <promptId> also needs --location <code> (e.g. --location us).",
+						2,
+					);
+				}
+				return request(args, "POST", path, {
+					action: "set_prompt_location",
+					promptId: setLocation,
+					location,
+				});
+			}
+
 			const removePrompt = option(args, "--remove-prompt");
 			if (removePrompt) {
 				return request(
 					args,
 					"DELETE",
-					`/api/v1/sites/${domain}/ai-visibility?promptId=${encodeURIComponent(removePrompt)}`,
+					`${path}?promptId=${encodeURIComponent(removePrompt)}`,
 				);
 			}
 			if (flag(args, "--reset-prompts")) {
-				return request(args, "POST", `/api/v1/sites/${domain}/ai-visibility`, {
-					action: "reset",
+				return request(args, "POST", path, { action: "reset" });
+			}
+			return request(args, "GET", path);
+		}
+		case "growth:tasks": {
+			const domain = encode(domainArg(args));
+			const path = `/api/v1/sites/${domain}/growth`;
+
+			if (flag(args, "--run")) {
+				return request(
+					args,
+					"POST",
+					path,
+					{ action: "run" },
+					true,
+					GROWTH_RUN_TIMEOUT_MS,
+				);
+			}
+
+			const task = option(args, "--task");
+			const status = option(args, "--status");
+			if (task || status) {
+				if (!task || !status) {
+					fail(
+						"Moving a task needs both --task <id> and --status <todo|in_progress|blocked|done>.",
+						2,
+					);
+				}
+				return request(args, "POST", path, { action: "task", id: task, status });
+			}
+
+			return request(args, "GET", path);
+		}
+		case "account:usage":
+			return request(args, "GET", "/api/v1/account/usage");
+		case "marketplace:packages":
+			return request(args, "GET", "/api/v1/marketplace/packages");
+		case "marketplace:sites": {
+			const limit = option(args, "--limit");
+			const q = limit ? `?${new URLSearchParams({ limit })}` : "";
+			return request(args, "GET", `/api/v1/marketplace/sites${q}`);
+		}
+		case "marketplace:cart": {
+			const path = "/api/v1/marketplace/cart";
+			const addPackage = option(args, "--add-package");
+			if (addPackage) {
+				return request(args, "POST", path, {
+					action: "add_package",
+					packageId: addPackage,
 				});
 			}
-			return request(args, "GET", `/api/v1/sites/${domain}/ai-visibility`);
+			const addSite = option(args, "--add-site");
+			if (addSite) {
+				return request(args, "POST", path, {
+					action: "add_site",
+					websiteId: addSite,
+				});
+			}
+			const remove = option(args, "--remove");
+			if (remove) {
+				const index = Number(remove);
+				if (!Number.isInteger(index)) {
+					fail("--remove takes the item's index in the cart (0, 1, 2...).", 2);
+				}
+				return request(args, "POST", path, { action: "remove", index });
+			}
+			// Prints a Stripe Checkout URL. Nothing is charged here: a human still
+			// enters the card, which is the point.
+			if (flag(args, "--checkout")) {
+				return request(args, "POST", path, { action: "checkout" });
+			}
+			const brief = cartBrief(args);
+			if (brief) {
+				return request(args, "POST", path, { action: "brief", brief });
+			}
+			return request(args, "GET", path);
+		}
+		case "marketplace:orders": {
+			const path = "/api/v1/marketplace/orders";
+			const orderNo = option(args, "--brief");
+			if (orderNo) {
+				const brief = cartBrief(args);
+				if (!brief) {
+					fail(
+						'Briefing an order needs at least --target-url <url>. Add --anchor, --about, and --talking-points to say how the link should read.',
+						2,
+					);
+				}
+				return request(args, "POST", path, {
+					action: "brief",
+					orderNo,
+					brief,
+				});
+			}
+			return request(args, "GET", path);
+		}
+		case "marketplace:requests": {
+			const path = "/api/v1/marketplace/requests";
+			const websiteSlug = domainArg(args);
+			const remove = option(args, "--remove");
+			if (remove) {
+				const q = new URLSearchParams({ websiteSlug, id: remove });
+				return request(args, "DELETE", `${path}?${q}`);
+			}
+			const title = option(args, "--title");
+			const description = option(args, "--description");
+			if (title || description) {
+				if (!title || !description) {
+					fail("Posting a request needs both --title and --description.", 2);
+				}
+				const budget = option(args, "--budget");
+				return request(args, "POST", path, {
+					websiteSlug,
+					title,
+					description,
+					// USD minor units, so the flag takes dollars and the wire takes
+					// cents: --budget 250 is $250, not $2.50.
+					...(budget ? { budgetAmount: Math.round(Number(budget) * 100) } : {}),
+					...(option(args, "--id") ? { id: option(args, "--id") } : {}),
+				});
+			}
+			return request(args, "GET", `${path}?${new URLSearchParams({ websiteSlug })}`);
+		}
+		case "earn:sites": {
+			const path = "/api/v1/earn/sites";
+			const websiteSlug = positionalArgs(args)[0];
+			const formats = option(args, "--formats");
+			const linkTypes = formats
+				? formats.split(",").map((entry) => entry.trim()).filter(Boolean)
+				: undefined;
+			const turnaround = option(args, "--turnaround");
+			const maxPlacements = option(args, "--max-placements");
+
+			if (flag(args, "--join")) {
+				if (!websiteSlug) fail("A website is required to join.", 2);
+				if (!flag(args, "--accept-terms")) {
+					fail(
+						"Joining the network accepts the publisher terms. Pass --accept-terms once the owner has agreed.",
+						2,
+					);
+				}
+				return request(args, "POST", path, {
+					action: "join",
+					websiteSlug,
+					acceptTerms: true,
+					...(linkTypes ? { linkTypes } : {}),
+					...(turnaround ? { turnaroundDays: Number(turnaround) } : {}),
+					...(maxPlacements
+						? { maxPlacementsPerMonth: Number(maxPlacements) }
+						: {}),
+				});
+			}
+
+			const status = option(args, "--status");
+			if (status) {
+				if (!websiteSlug) fail("A website is required.", 2);
+				return request(args, "POST", path, {
+					action: "status",
+					websiteSlug,
+					status,
+				});
+			}
+
+			if (linkTypes || turnaround || maxPlacements) {
+				if (!websiteSlug) fail("A website is required.", 2);
+				return request(args, "POST", path, {
+					action: "settings",
+					websiteSlug,
+					...(linkTypes ? { linkTypes } : {}),
+					...(turnaround ? { turnaroundDays: Number(turnaround) } : {}),
+					...(maxPlacements
+						? { maxPlacementsPerMonth: Number(maxPlacements) }
+						: {}),
+				});
+			}
+
+			return request(args, "GET", path);
+		}
+		case "earn:assignments": {
+			const path = "/api/v1/earn/assignments";
+			const accept = option(args, "--accept");
+			if (accept) {
+				return request(args, "POST", path, {
+					action: "accept",
+					placementId: accept,
+				});
+			}
+			const decline = option(args, "--decline");
+			if (decline) {
+				return request(args, "POST", path, {
+					action: "decline",
+					placementId: decline,
+					...(option(args, "--reason")
+						? { reason: option(args, "--reason") }
+						: {}),
+				});
+			}
+			const live = option(args, "--live");
+			if (live) {
+				const url = option(args, "--url");
+				if (!url) {
+					fail("--live <placementId> also needs --url <published page>.", 2);
+				}
+				return request(args, "POST", path, {
+					action: "live",
+					placementId: live,
+					liveUrl: url,
+				});
+			}
+			return request(args, "GET", path);
+		}
+		case "earn:earnings":
+			return request(args, "GET", "/api/v1/earn/earnings");
+		case "inbox:list": {
+			const q = new URLSearchParams();
+			const limit = option(args, "--limit");
+			if (limit) q.set("limit", limit);
+			const offset = option(args, "--offset");
+			if (offset) q.set("offset", offset);
+			const qs = q.toString();
+			return request(args, "GET", `/api/v1/inbox${qs ? `?${qs}` : ""}`);
+		}
+		case "inbox:thread": {
+			const threadId = positionalArgs(args)[0];
+			if (!threadId) {
+				fail("A conversation id is required (from vdr inbox:list).", 2);
+			}
+			const path = `/api/v1/inbox/${encodeURIComponent(threadId)}`;
+			const reply = option(args, "--reply");
+			if (reply) {
+				return request(args, "POST", path, { body: reply });
+			}
+			if (flag(args, "--read")) {
+				return request(args, "POST", path, { action: "read" });
+			}
+			return request(args, "GET", path);
 		}
 		case "keywords:research": {
 			const keyword = positionalArgs(args)[0];
