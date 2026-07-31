@@ -1,7 +1,8 @@
 {
 	"name": "verifieddr",
-	"version": "0.8.0",
-	"description": "CLI for the VerifiedDR API: track how often ChatGPT, Perplexity, and Google AI Mode mention your site, tune the questions they are asked, work a generated growth plan, and diagnose TrueDR gaps.",
+	"version": "0.9.0",
+	"mcpName": "com.verifieddr/mcp",
+	"description": "CLI and MCP server for the VerifiedDR API: track how often ChatGPT, Perplexity, and Google AI Mode mention your site, tune the questions they are asked, work a generated growth plan, and diagnose TrueDR gaps.",
 	"type": "module",
 	"bin": {
 		"vdr": "dist/cli.js",
@@ -31,6 +32,8 @@
 		"trust-score",
 		"visibility",
 		"ai-visibility",
+		"mcp",
+		"model-context-protocol",
 		"cli"
 	],
 	"license": "MIT",

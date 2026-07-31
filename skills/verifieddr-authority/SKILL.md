@@ -86,6 +86,28 @@ scans: the AI search prompt budget is account-wide (Pro 25, Max 75, Ultra 200,
 across all websites; websites themselves are unlimited), so a per-site read
 cannot tell you whether the next `--add-prompt` fits.
 
+## Prefer MCP?
+
+Everything this skill does is also exposed as MCP tools by the remote server at
+`https://verifieddr.com/api/mcp` (streamable HTTP, same `vdr_` key, 62 tools
+covering the full API, one tool per action). If the user prefers MCP or their
+client speaks it natively, set the connection up yourself instead of using the
+CLI:
+
+```bash
+# Claude Code
+claude mcp add --transport http verifieddr https://verifieddr.com/api/mcp \
+  --header "Authorization: Bearer vdr_your_api_key"
+```
+
+Stdio-only clients (Claude Desktop and similar) can run the bundled bridge:
+command `npx`, args `["-y", "verifieddr", "mcp"]`, with `VERIFIEDDR_API_KEY` in
+the environment. Both paths hit the same server, spend the same plan quota, and
+follow the same approval rules as the CLI commands in this skill; tool names
+mirror the commands (`analyze` -> `lookup_site`, `opportunities` ->
+`find_partner_opportunities`, and so on) and the full catalog comes from
+`tools/list`. Docs: https://verifieddr.com/mcp
+
 ## Command Choice
 
 AI visibility is the product's primary metric: it is what the plan meters and

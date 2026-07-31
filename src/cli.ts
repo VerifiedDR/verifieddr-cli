@@ -461,6 +461,12 @@ Account:
   vdr account:usage                      Plan, AI prompt budget (account-wide),
                                          API quota, and what your plan includes
 
+MCP (Model Context Protocol):
+  vdr mcp                                Serve the VerifiedDR MCP server over
+                                         stdio: bridges to verifieddr.com/api/mcp
+                                         so Claude Desktop and other stdio-only
+                                         clients get every API tool
+
 Keyword research (any paid plan):
   vdr keywords:research "<keyword>" [--domain <yours>]
                                          DR the Google top 10 demands; with
@@ -1862,6 +1868,95 @@ async function coach(command: string, args: string[]): Promise<void> {
 	}
 }
 
+const MCP_TIMEOUT_MS = 180000;
+
+/**
+ * `vdr mcp`: serve the VerifiedDR MCP server over stdio by bridging every
+ * JSON-RPC message to the remote endpoint at {base}/api/mcp. The remote server
+ * owns the tool catalog, auth, quota, and plan gating; this bridge only moves
+ * newline-delimited messages, so stdio-only clients (Claude Desktop, older
+ * MCP hosts) get exactly the same tools as a streamable-HTTP client.
+ *
+ * stdout carries JSON-RPC only; anything human goes to stderr.
+ */
+async function serveMcp(args: string[]): Promise<void> {
+	const endpoint = `${baseUrl(args)}/api/mcp`;
+	const key = apiKey(args);
+	if (!key) {
+		process.stderr.write(
+			"vdr mcp: no API key found; tools will list but calls will fail. Set VERIFIEDDR_API_KEY=vdr_... or pass --key vdr_....\n",
+		);
+	}
+
+	const forward = async (message: unknown): Promise<void> => {
+		const record =
+			typeof message === "object" && message !== null
+				? (message as { id?: unknown })
+				: {};
+		const hasId = record.id !== undefined && record.id !== null;
+		try {
+			const response = await fetch(endpoint, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Accept: "application/json",
+					...(key ? { Authorization: `Bearer ${key}` } : {}),
+				},
+				body: JSON.stringify(message),
+				signal: AbortSignal.timeout(MCP_TIMEOUT_MS),
+			});
+			const text = await response.text();
+			// Notifications answer 202 with no body: nothing to write.
+			if (text.trim() === "") return;
+			process.stdout.write(`${text.trim()}\n`);
+		} catch (error) {
+			if (!hasId) return;
+			process.stdout.write(
+				`${JSON.stringify({
+					jsonrpc: "2.0",
+					id: record.id,
+					error: {
+						code: -32000,
+						message: `VerifiedDR MCP request failed: ${
+							error instanceof Error ? error.message : String(error)
+						}`,
+					},
+				})}\n`,
+			);
+		}
+	};
+
+	process.stderr.write(`vdr mcp: bridging stdio <-> ${endpoint}\n`);
+	let buffer = "";
+	process.stdin.setEncoding("utf8");
+	for await (const chunk of process.stdin) {
+		buffer += chunk;
+		let newline = buffer.indexOf("\n");
+		while (newline !== -1) {
+			const line = buffer.slice(0, newline).trim();
+			buffer = buffer.slice(newline + 1);
+			newline = buffer.indexOf("\n");
+			if (line === "") continue;
+			let message: unknown;
+			try {
+				message = JSON.parse(line);
+			} catch {
+				process.stdout.write(
+					`${JSON.stringify({
+						jsonrpc: "2.0",
+						id: null,
+						error: { code: -32700, message: "Parse error: line is not valid JSON" },
+					})}\n`,
+				);
+				continue;
+			}
+			// Sequential on purpose: MCP clients pipeline rarely, and ordered
+			// responses keep the bridge trivially correct.
+			await forward(message);
+		}
+	}
+}
+
 async function main(): Promise<void> {
 	const [rawCommand, ...args] = process.argv.slice(2);
 	const command = rawCommand ? (ALIASES[rawCommand] ?? rawCommand) : rawCommand;
@@ -2024,6 +2119,8 @@ async function main(): Promise<void> {
 		}
 		case "account:usage":
 			return request(args, "GET", "/api/v1/account/usage");
+		case "mcp":
+			return serveMcp(args);
 		case "marketplace:packages":
 			return request(args, "GET", "/api/v1/marketplace/packages");
 		case "marketplace:sites": {

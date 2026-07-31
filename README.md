@@ -49,6 +49,43 @@ the env var on any command. When a feature or quota is locked, the CLI prints an
 `upgradeUrl`; the default upgrade path is
 `https://verifieddr.com/pricing?source=cli&feature=api`.
 
+## MCP server
+
+VerifiedDR is also a remote MCP (Model Context Protocol) server: the entire
+API surface — visibility scans, growth tasks, keyword research, the
+marketplace, publisher earnings, and your inbox — exposed as tools to Claude,
+Cursor, and any other MCP client. Calls are metered against the same API
+quota.
+
+Streamable HTTP (no install needed):
+
+```bash
+claude mcp add --transport http verifieddr https://verifieddr.com/api/mcp \
+  --header "Authorization: Bearer vdr_your_key"
+```
+
+Any client that speaks streamable HTTP connects to
+`https://verifieddr.com/api/mcp` with the same `Authorization` header.
+
+For stdio-only clients (Claude Desktop, older hosts), the CLI bridges to the
+same remote server:
+
+```json
+{
+  "mcpServers": {
+    "verifieddr": {
+      "command": "npx",
+      "args": ["-y", "verifieddr", "mcp"],
+      "env": { "VERIFIEDDR_API_KEY": "vdr_your_key" }
+    }
+  }
+}
+```
+
+The server keeps two human-in-the-loop boundaries: checkout tools only return
+a Stripe URL (a human pays), and joining the publisher network requires an
+explicit `acceptTerms: true`.
+
 ## Commands
 
 AI Visibility is the main surface: it is what the plan meters and what the

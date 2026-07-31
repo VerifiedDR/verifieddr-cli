@@ -1,0 +1,54 @@
+{
+	"$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+	"name": "com.verifieddr/mcp",
+	"description": "Website visibility and trust tools for agents: DR, TrueDR, AI visibility scans across ChatGPT, Perplexity, and Google AI Mode, keyword research, growth tasks, a backlink marketplace, publisher earnings, and a partnership inbox.",
+	"websiteUrl": "https://verifieddr.com/mcp",
+	"repository": {
+		"url": "https://github.com/VerifiedDR/verifieddr-cli",
+		"source": "github"
+	},
+	"version": "0.9.0",
+	"remotes": [
+		{
+			"type": "streamable-http",
+			"url": "https://verifieddr.com/api/mcp",
+			"headers": [
+				{
+					"name": "Authorization",
+					"description": "VerifiedDR API key as a bearer token: Bearer vdr_... (create one at https://verifieddr.com/dashboard/api)",
+					"isRequired": true,
+					"isSecret": true,
+					"format": "string"
+				}
+			]
+		}
+	],
+	"packages": [
+		{
+			"registryType": "npm",
+			"identifier": "verifieddr",
+			"version": "0.9.0",
+			"transport": {
+				"type": "stdio"
+			},
+			"runtimeHint": "npx",
+			"runtimeArguments": [
+				{
+					"type": "positional",
+					"value": "mcp",
+					"isRequired": true,
+					"description": "Serve the VerifiedDR MCP server over stdio"
+				}
+			],
+			"environmentVariables": [
+				{
+					"name": "VERIFIEDDR_API_KEY",
+					"description": "VerifiedDR API key (vdr_...), from https://verifieddr.com/dashboard/api",
+					"isRequired": true,
+					"isSecret": true,
+					"format": "string"
+				}
+			]
+		}
+	]
+}
