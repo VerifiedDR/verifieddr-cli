@@ -354,7 +354,7 @@ vdr authority:lookup stripe.com | jq '.lookup.authority'
 
 This repo ships two agent **skills**:
 
-- [`skills/verifieddr-authority`](skills/verifieddr-authority/SKILL.md) teaches
+- [`skills/verifieddr-visibility`](skills/verifieddr-visibility/SKILL.md) teaches
   assistants when and how to call these commands.
 - [`skills/seo-publish-pipeline`](skills/seo-publish-pipeline/SKILL.md) is a
   gated agentic workflow for writing and publishing SEO articles: keyword

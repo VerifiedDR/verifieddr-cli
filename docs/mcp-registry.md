@@ -17,7 +17,7 @@ mcp-publisher login dns --domain verifieddr.com
 #    HTTP flavor instead: it asks for a file under
 #    https://verifieddr.com/.well-known/ - ask Claude to add the route.
 
-# 3. Publish (run from this repo root; npm 0.9.0 must be published first,
+# 3. Publish (run from this repo root; npm 0.9.1 must be published first,
 #    because the registry validates the "mcpName" field inside the tarball)
 npm publish
 mcp-publisher publish

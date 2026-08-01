@@ -1,36 +1,18 @@
 ---
-name: verifieddr-authority
+name: verifieddr-visibility
 description: >-
-  Use when working with VerifiedDR visibility and trust data through the
-  VerifiedDR CLI (`vdr`) or API: diagnosing why TrueDR is lower than DR,
-  choosing the next visibility action, generating growth plans, explaining
-  TrueDR gaps to clients/founders, looking up DR/TrueDR/trust evidence,
-  discovering trusted sites by category or TrueDR for partner/sponsor/integration
-  prospecting, grabbing badge or embed snippets, monitoring DR, TrueDR, and
-  trust changes, traffic validation, backlink deltas, trust/spam alerts on sites you own,
-  AI visibility (how often ChatGPT, Perplexity, and Google AI Mode mention a
-  site you own, with cited pages worth outreach): reading the score, editing and
-  re-targeting the tracked questions, running a fresh scan, and comparing two
-  runs; working the generated growth task plan; checking plan limits, the
-  account-wide AI prompt budget, and API quota;
-  buying backlink packages or single placements in the marketplace (browsing
-  inventory, cart, orders, briefs) and posting what a website wants from
-  others; earning as a publisher (joining the network, accepting or declining
-  assigned placements, submitting live URLs, checking payouts);
-  reading and replying to partnership conversations in the inbox;
-  backlink-risk review, and keyword research: the DR
-  a keyword's Google top 10 demands, your DR gap to it, and winnable keywords a
-  domain already ranks 4-30 for; exporting VerifiedDR data for
-  scripts, CI, dashboards, or SaaS integrations.
-  Prefer this skill for requests mentioning VerifiedDR analyze, diagnose,
-  actions, opportunities, next, lookup, find, monitor, export, snippets, TrueDR,
-  trust score, traffic validation, spam links, AI visibility,
-  AI mentions, LLM visibility, AI visibility questions or prompts, running an AI
-  visibility scan, growth tasks, plan limits or prompt budget, keyword research,
-  keyword difficulty by DR, winnable keywords, buying or selling backlinks,
-  backlink packages, marketplace cart or orders, placement briefs, publisher
-  assignments or earnings, partnership inbox or replies, or agent-friendly
-  VerifiedDR workflows.
+  Use for VerifiedDR visibility and trust work through the vdr CLI or API:
+  analyze, diagnose, lookup, monitor, export, TrueDR gaps, DR and trust
+  evidence, traffic validation, backlink maps and alerts, badge snippets,
+  growth plans and tasks, AI visibility scores, tracked questions and scans,
+  keyword difficulty and winnable keywords, partner discovery and outreach,
+  marketplace inventory, carts, orders and briefs, publisher assignments and
+  earnings, partnership inbox replies, plan limits, prompt budgets, and API
+  quota. Trigger when a user mentions VerifiedDR, TrueDR, trust score, AI or
+  LLM visibility, keyword research by DR, backlink packages, placements,
+  publisher work, partnership opportunities, or agent-friendly VerifiedDR
+  workflows. Keep recommendations within VerifiedDR's visibility, authority,
+  marketplace, and partnership surfaces rather than generic SEO audits.
 ---
 
 # VerifiedDR Visibility
@@ -53,24 +35,32 @@ from `vdr` is what the user sees when they open the tab.
 # Install the skill
 npx skills add VerifiedDR/verifieddr-cli
 
-# Install the CLI
-npm install -g verifieddr
-
 # Set your API key
 export VERIFIEDDR_API_KEY=vdr_your_key
 
 # Check what the plan allows and what is left
-vdr account:usage
+npx -y verifieddr account:usage
 
 # See how often AI answers name the site
-vdr sites:visibility verifieddr.com
+npx -y verifieddr sites:visibility verifieddr.com
 
 # Get a score, diagnosis, and next actions
-vdr analyze verifieddr.com
+npx -y verifieddr analyze verifieddr.com
 
 # Surface verified partners worth contacting
-vdr opportunities verifieddr.com
+npx -y verifieddr opportunities verifieddr.com
 ```
+
+Before running a CLI workflow, check whether `vdr` is available. Use `vdr`
+directly when it is; otherwise run the same command as
+`npx -y verifieddr <command>`. The examples below use `vdr` for readability,
+but a global install is optional.
+
+Before the first data command, check that `VERIFIEDDR_API_KEY` is set. If it is
+missing, send the user to `https://verifieddr.com/dashboard/api` to create a
+key and tell them to set it in their local environment. Never ask them to paste
+the secret into chat. Once configured, verify the connection with
+`account:usage` before starting the requested workflow.
 
 Every data command requires a `vdr_...` API key and spends one unit of the
 owner's plan quota (`help` and `--version` are local exceptions). The API is
@@ -78,8 +68,7 @@ paid-only: Pro includes 1,000 calls/month, Max 5,000, and Ultra 10,000. A free
 key authenticates but every call answers `402` with an upgrade link, so on a
 free account surface the upgrade instead of retrying. Remaining quota and tier
 are printed to stderr. Coach commands print plain-English guidance; API commands
-print JSON on stdout with an `ok` boolean. If global installs are unavailable,
-run commands through `npx verifieddr <command>`.
+print JSON on stdout with an `ok` boolean.
 
 Check `vdr account:usage` before a session that will add questions or run
 scans: the AI search prompt budget is account-wide (Pro 25, Max 75, Ultra 200,
@@ -162,6 +151,7 @@ the monthly partner-contact limit; when it is reached, surface the CLI/API
 Use API commands when the user needs raw data, scripting, or integrations:
 
 ```bash
+vdr authority:dr <domain>            # DR for ANY domain, tracked on VerifiedDR or not
 vdr authority:lookup <domain>        # DR, TrueDR, trust data for ANY approved site
 vdr map <domain>                     # backlink map (`authority:map` also works)
 vdr map <domain> --json              # raw DR Map data
@@ -227,6 +217,17 @@ from real data, and get approval before `--add-prompt`, `--remove-prompt`, or
 `--run`. Question edits are cheap and reversible; a run is neither.
 
 ```text
+Run a fresh AI Visibility scan for example.com.
+Read the stored snapshot first and note its run date and score; if the last run
+is under a week old, say so and stop. Otherwise ask before spending the weekly
+run, then diff the fresh run against the previous one and tell me the score
+delta, the mentions gained and lost, and the new cited sources worth chasing.
+```
+
+Read with `vdr sites:visibility`, run with `--run` only after approval, and
+compare with `--from <iso> --to <iso>` once the run finishes.
+
+```text
 Run the VerifiedDR growth loop for example.com.
 Generate a growth plan with `vdr growth:tasks example.com --run`, tell me the
 single highest-impact task and why, and mark it done only once I confirm I
@@ -280,6 +281,11 @@ copy.
   listed target and copy. Sending requires both `--subject` and `--message`;
   it sends mail through VerifiedDR. If the CLI returns an
   `upgradeUrl`, include it in the next action.
+- `authority:dr` when the domain is not on VerifiedDR, or you do not know
+  whether it is: scoring a prospect, competitor, sponsor, or link target before
+  anyone submits it. Returns DR only, relayed from Ahrefs. When the response
+  says `listed: true`, follow up with `authority:lookup` for TrueDR and trust.
+  Never tell a user to submit a site just to read its DR.
 - `authority:lookup` when the user asks what VerifiedDR knows about a domain or
   needs JSON. Returns DR, TrueDR, trust score, confidence, traffic validation,
   latest backlink totals, and badge links. Works for any approved site.
@@ -427,6 +433,9 @@ hidden aliases, but prefer the `resource:action` forms above.
 
 ## Public vs. owner-scoped
 
+- **Any domain at all:** `authority:dr`. Domain Rating relayed straight from
+  Ahrefs, no submission and no VerifiedDR listing required. DR only: TrueDR,
+  trust, and traffic validation are VerifiedDR-computed and need a tracked site.
 - **Public fields, any approved site:** `authority:lookup`, `map`,
   `discover:find`, `badge:snippets`. Never expose owner identity, billing state, or the
   per-signal trust breakdown. That data is not returned by these commands, so
