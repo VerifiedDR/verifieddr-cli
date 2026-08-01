@@ -47,6 +47,38 @@ human-approved; the server rejects sends without them). Free users receive `402`
 `requiredPlan`, and `blockedFeature`; agents should show that URL as the next
 step.
 
+## authority:dr (public, ANY domain, no submission needed)
+
+```bash
+vdr authority:dr anything.com
+# GET /api/v1/dr/anything.com
+```
+
+```json
+{
+  "ok": true,
+  "dr": {
+    "domain": "anything.com",
+    "dr": 62,
+    "source": "ahrefs",
+    "listed": false,
+    "slug": null
+  }
+}
+```
+
+Domain Rating relayed straight from Ahrefs, so the domain does not have to be
+on VerifiedDR and nobody has to have submitted it. Use this to score a
+prospect, competitor, sponsor, or link target before it is tracked; never tell
+a user to submit a site just to read its DR.
+
+DR only. TrueDR, trust score, confidence, and traffic validation are
+VerifiedDR-computed and need a tracked site, so when `listed` is `true`, follow
+up with `authority:lookup` for the full picture. Subdomains and URLs resolve to
+the registrable domain (`blog.example.com/post` returns `example.com`). An
+invalid or blacklisted domain returns `400`; an upstream miss returns `503`.
+Results are cached per domain, but every call still spends one API quota unit.
+
 ## authority:lookup (public, any approved site)
 
 ```bash
