@@ -203,6 +203,7 @@ The API commands follow a `resource:action` shape:
 
 ```bash
 # Public discovery, works for ANY approved site
+vdr authority:dr anything.com         # DR for ANY domain, tracked or not
 vdr authority:lookup stripe.com       # DR, TrueDR, trust score, evidence
 vdr map stripe.com                    # terminal backlink map
 vdr map stripe.com --json             # raw DR Map data
@@ -252,6 +253,11 @@ public request-indexing API for regular pages; for Google, keep your sitemap
 
 ### What's public vs. private
 
+- **Any domain at all** (`authority:dr`): Domain Rating relayed straight from
+  Ahrefs, so you can score a prospect, competitor, or link target that nobody
+  has submitted to VerifiedDR. DR only: TrueDR, trust, and traffic validation
+  are VerifiedDR-computed and need a tracked site, so follow up with
+  `authority:lookup` when the response says `listed: true`.
 - **Public fields, any site** (`authority:lookup`, `discover:find`,
   `map`, `badge:snippets`): DR, TrueDR, trust score, confidence, traffic
   validation, public backlink totals/map data, badge links. Never owner

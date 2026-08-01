@@ -414,7 +414,8 @@ Coach commands:
   analyze and next read your AI Visibility score first when the domain is one
   of your sites, so the top action reflects AI answers, not just backlinks.
 
-API commands (any approved site):
+API commands (any domain for authority:dr, any approved site otherwise):
+  vdr authority:dr <domain>              DR for ANY domain, tracked or not
   vdr authority:lookup <domain>          DR, TrueDR, trust score, evidence
   vdr map <domain>                       Render the backlink map in your terminal
   vdr discover:find [filters]            Discover trusted sites, ranked by TrueDR
@@ -537,6 +538,7 @@ const ALIASES: Record<string, string> = {
 	fix: "coach:fix",
 	track: "coach:track",
 	boost: "coach:boost",
+	dr: "authority:dr",
 	lookup: "authority:lookup",
 	map: "authority:map",
 	find: "discover:find",
@@ -1977,6 +1979,8 @@ async function main(): Promise<void> {
 		case "coach:explain":
 		case "coach:next":
 			return coach(command, args);
+		case "authority:dr":
+			return request(args, "GET", `/api/v1/dr/${encode(domainArg(args))}`);
 		case "authority:lookup":
 			return request(args, "GET", `/api/v1/lookup/${encode(domainArg(args))}`);
 		case "authority:map":

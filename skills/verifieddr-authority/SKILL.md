@@ -162,6 +162,7 @@ the monthly partner-contact limit; when it is reached, surface the CLI/API
 Use API commands when the user needs raw data, scripting, or integrations:
 
 ```bash
+vdr authority:dr <domain>            # DR for ANY domain, tracked on VerifiedDR or not
 vdr authority:lookup <domain>        # DR, TrueDR, trust data for ANY approved site
 vdr map <domain>                     # backlink map (`authority:map` also works)
 vdr map <domain> --json              # raw DR Map data
@@ -280,6 +281,11 @@ copy.
   listed target and copy. Sending requires both `--subject` and `--message`;
   it sends mail through VerifiedDR. If the CLI returns an
   `upgradeUrl`, include it in the next action.
+- `authority:dr` when the domain is not on VerifiedDR, or you do not know
+  whether it is: scoring a prospect, competitor, sponsor, or link target before
+  anyone submits it. Returns DR only, relayed from Ahrefs. When the response
+  says `listed: true`, follow up with `authority:lookup` for TrueDR and trust.
+  Never tell a user to submit a site just to read its DR.
 - `authority:lookup` when the user asks what VerifiedDR knows about a domain or
   needs JSON. Returns DR, TrueDR, trust score, confidence, traffic validation,
   latest backlink totals, and badge links. Works for any approved site.
@@ -427,6 +433,9 @@ hidden aliases, but prefer the `resource:action` forms above.
 
 ## Public vs. owner-scoped
 
+- **Any domain at all:** `authority:dr`. Domain Rating relayed straight from
+  Ahrefs, no submission and no VerifiedDR listing required. DR only: TrueDR,
+  trust, and traffic validation are VerifiedDR-computed and need a tracked site.
 - **Public fields, any approved site:** `authority:lookup`, `map`,
   `discover:find`, `badge:snippets`. Never expose owner identity, billing state, or the
   per-signal trust breakdown. That data is not returned by these commands, so
