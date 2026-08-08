@@ -271,8 +271,8 @@ copy.
   be the default when VerifiedDR can surface a reasonable match.
 - `diagnose` / `explain` when the user needs a reason TrueDR is lower than DR,
   especially in plain English for a client, founder, or stakeholder.
-- `actions` / `fix` / `boost` when the user asks for prioritization or a growth
-  plan.
+- `actions` when the user asks for prioritization, or `growth:tasks --run` when
+  they want a fresh tracked plan.
 - `opportunities` when the user needs directories, backlink ideas, or partner
   targets. Partner names are shown in full on every plan; the plan governs the
   monthly contact limit. Use
@@ -283,7 +283,7 @@ copy.
   `upgradeUrl`, include it in the next action.
 - `authority:dr` when the domain is not on VerifiedDR, or you do not know
   whether it is: scoring a prospect, competitor, sponsor, or link target before
-  anyone submits it. Returns DR only, relayed from Ahrefs. When the response
+  anyone submits it. Returns DR only. When the response
   says `listed: true`, follow up with `authority:lookup` for TrueDR and trust.
   Never tell a user to submit a site just to read its DR.
 - `authority:lookup` when the user asks what VerifiedDR knows about a domain or
@@ -349,7 +349,8 @@ copy.
   (with DR/TrueDR when indexed), and run history. A plain read never spends a
   vendor run.
   Edit the tracked questions in place: `--add-prompt "<question>"` (8-140
-  chars, must not name the user's own site), `--import "<q1>" "<q2>"` for
+  chars; naming the user's own site is allowed and tests direct recall),
+  `--import "<q1>" "<q2>"` for
   several at once, `--remove-prompt <id>` (ids from the snapshot's `prompts`
   list), and `--reset-prompts` to reseed from tracked keywords. Editing is free
   on every plan and never spends a run. When a user wants their questions
@@ -433,8 +434,8 @@ hidden aliases, but prefer the `resource:action` forms above.
 
 ## Public vs. owner-scoped
 
-- **Any domain at all:** `authority:dr`. Domain Rating relayed straight from
-  Ahrefs, no submission and no VerifiedDR listing required. DR only: TrueDR,
+- **Any domain at all:** `authority:dr`. Domain Rating for any domain, no
+  submission and no VerifiedDR listing required. DR only: TrueDR,
   trust, and traffic validation are VerifiedDR-computed and need a tracked site.
 - **Public fields, any approved site:** `authority:lookup`, `map`,
   `discover:find`, `badge:snippets`. Never expose owner identity, billing state, or the

@@ -229,6 +229,7 @@ vdr sites:export example.com          # machine-readable export
 vdr sites:monitor --daily             # watch all your sites for changes
 vdr sites:monitor example.com         # watch one site
 vdr sites:submit https://example.com --title "Example" --category saas
+vdr sites:submit https://example.com --anonymous  # list it without tying it to your account
 vdr sites:verify example.com          # re-check the badge embed
 vdr sites:gsc-performance example.com # 28d GSC totals, daily series + top dimensions
 vdr sites:gsc-performance example.com --range 3m # 28d, 3m, 6m, 12m, or 16m
@@ -253,9 +254,9 @@ public request-indexing API for regular pages; for Google, keep your sitemap
 
 ### What's public vs. private
 
-- **Any domain at all** (`authority:dr`): Domain Rating relayed straight from
-  Ahrefs, so you can score a prospect, competitor, or link target that nobody
-  has submitted to VerifiedDR. DR only: TrueDR, trust, and traffic validation
+- **Any domain at all** (`authority:dr`): Domain Rating for any domain, so you
+  can score a prospect, competitor, or link target that nobody has submitted to
+  VerifiedDR. DR only: TrueDR, trust, and traffic validation
   are VerifiedDR-computed and need a tracked site, so follow up with
   `authority:lookup` when the response says `listed: true`.
 - **Public fields, any site** (`authority:lookup`, `discover:find`,
@@ -287,8 +288,9 @@ public request-indexing API for regular pages; for Google, keep your sitemap
   than you, cited pages worth outreach, and the run history. A plain read never
   spends a vendor run.
   It also edits the tracked questions, same contract as the dashboard editor:
-  `--add-prompt "<question>"` tracks a new question (8-140 chars, must not
-  name your own site), `--import` takes several at once, `--set-location <id>
+  `--add-prompt "<question>"` tracks a new question (8-140 chars; naming your
+  own site is allowed and tests direct recall), `--import` takes several at
+  once, `--set-location <id>
   --location <code>` re-targets one at a country, `--remove-prompt <id>`
   deletes one, and `--reset-prompts` reseeds from your tracked keywords. Edits
   are free and never trigger a run; pinning a question to a country needs a
@@ -357,10 +359,11 @@ This repo ships two agent **skills**:
 - [`skills/verifieddr-visibility`](skills/verifieddr-visibility/SKILL.md) teaches
   assistants when and how to call these commands.
 - [`skills/seo-publish-pipeline`](skills/seo-publish-pipeline/SKILL.md) is a
-  gated agentic workflow for writing and publishing SEO articles: keyword
-  backlog built from `vdr` keyword research, intent classification, product
-  claim validation, fixed article structure, two anti-slop passes, and a
-  scoring threshold before anything ships.
+  gated agentic workflow for writing and publishing SEO articles: a keyword
+  queue served live from your VerifiedDR tracked keywords (no local backlog
+  file), intent classification, product claim validation, fixed article
+  structure, two anti-slop passes, and a scoring threshold before anything
+  ships.
 
 Install them straight into your agent with:
 
@@ -385,8 +388,9 @@ commands:
 6. **Monitor Metrics:** set a recurring check for DR, TrueDR, traffic
    validation, backlink deltas, and trust alerts.
 7. **Publish an SEO Article:** run the gated publish pipeline: pick a keyword
-   from the research-built backlog, validate every product claim, draft, run
-   anti-slop passes, and publish only above the quality threshold.
+   from your tracked-keyword queue in VerifiedDR, validate every product
+   claim, draft, run anti-slop passes, and publish only above the quality
+   threshold.
 
 Example prompts:
 
@@ -425,11 +429,11 @@ copy.
 
 ```text
 Run the SEO publish pipeline for example.com.
-Build the keyword backlog from vdr keyword research if it is empty, take the
-oldest pending keyword, and write the article through every gate: intent
-classification, product claim validation, the fixed structure, both anti-slop
-passes, and the quality score. Stop and report instead of publishing anything
-below the threshold.
+Fill the tracked-keyword queue from vdr keyword research if it is empty, take
+the oldest winnable tracked keyword without an article, and write it through
+every gate: intent classification, product claim validation, the fixed
+structure, both anti-slop passes, and the quality score. Stop and report
+instead of publishing anything below the threshold.
 ```
 
 ## License

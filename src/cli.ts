@@ -491,6 +491,7 @@ Your own sites (owner-scoped):
   vdr sites:export <domain>              Machine-readable export of your site
   vdr sites:monitor [<domain>] [--daily] Watch changes + trust alerts
   vdr sites:submit <url> [--title --description --category --xhandle]
+                         [--anonymous]   List it without tying it to your account
   vdr sites:verify <domain>              Re-check the badge embed
   vdr sites:gsc-performance <domain> [--range 28d]
                                          Clicks, impressions, CTR, position,
@@ -2431,6 +2432,9 @@ async function main(): Promise<void> {
 			if (category) body.categories = [category];
 			const xHandle = option(args, "--xhandle");
 			if (xHandle) body.xHandle = xHandle;
+			// List the site without tying it to the key owner's account: it stays
+			// out of their dashboard and they get no owner emails about it.
+			if (flag(args, "--anonymous")) body.anonymous = true;
 			return request(args, "POST", "/api/v1/sites", body);
 		}
 		case undefined:

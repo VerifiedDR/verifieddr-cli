@@ -1,15 +1,15 @@
 ---
 name: seo-publish-pipeline
 description: >-
-  Run a gated SEO article pipeline before publishing: pick a keyword from a
-  research-built backlog (vdr CLI), classify search intent, check the site for
-  cannibalization, build a first-party evidence table, validate every product
-  claim against a product facts file, draft to a fixed structure, run two
-  anti-slop passes, score, and only then publish. Use when the user asks to
-  write/publish an SEO article or blog post, run the SEO pipeline, work the
-  keyword backlog, or build the backlog with vdr keyword research. Hard rule:
-  never invent a keyword, a number, or a product feature to keep the pipeline
-  moving.
+  Run a gated SEO article pipeline before publishing: pick a keyword from the
+  domain's tracked-keyword queue (served live by the vdr API/CLI/MCP, no local
+  backlog file), classify search intent, check the site for cannibalization,
+  build a first-party evidence table, validate every product claim against a
+  product facts file, draft to a fixed structure, run two anti-slop passes,
+  score, and only then publish. Use when the user asks to write/publish an SEO
+  article or blog post, run the SEO pipeline, work the keyword queue, or run
+  vdr keyword research. Hard rule: never invent a keyword, a number, or a
+  product feature to keep the pipeline moving.
 ---
 
 # SEO Publish Pipeline
@@ -18,15 +18,19 @@ Ten gated steps. Each gate can stop the pipeline; stopping and reporting is
 success, publishing slop is failure. Never skip a gate to keep publishing.
 
 Requires per project (stop and ask user to create if missing):
-- `content/keyword-backlog.md` - keyword queue, built by research runs only
 - `product.md` (project root) - features that exist AND features that do NOT
+
+The keyword queue is NOT a local file. It is the domain's tracked keywords on
+VerifiedDR, read and written through the vdr CLI (or the same endpoints via
+API/MCP: `GET/POST /api/v1/sites/<domain>/keywords`). One queue per domain,
+shared across every machine and agent that holds the API key.
 
 `vdr` CLI needs `VERIFIEDDR_API_KEY` (paid plan for keyword commands). Every
 call spends quota; batch research runs, don't call per-sentence.
 
-## Step 0: Backlog research run (separate from writing)
+## Step 0: Queue research run (separate from writing)
 
-Only this step may add keywords to the backlog. Start with the keywords the
+Only this step may add keywords to the queue. Start with the keywords the
 site already tracks; their stored snapshots (DR gap, tier, volume, position)
 are free and often make a fresh `keywords:research` call unnecessary:
 
@@ -41,32 +45,45 @@ vdr growth:tasks <domain>                         # generated plan: content + li
 
 Tracked keywords with a `boost` or `advanced` tier in their snapshot qualify
 directly; only run `keywords:research` on a tracked keyword when its snapshot
-is older than 30 days. Otherwise add only keywords with a winnable verdict or
-an existing 4-30 ranking. Record keyword, source command, DR gap, date, status
-(`pending|written|published`).
+is older than 30 days. A `keywords:suggest` or `keywords:research` winner
+(winnable verdict, or an existing 4-30 ranking) joins the queue by tracking
+it:
 
-**Rejections expire.** Re-read every tracked snapshot on each research run,
-including keywords a past run rejected. SERPs move: a term rejected at DR gap
-+20 can sit at gap -9 six weeks later. Write rejections as
-`rejected <date>, gap <n>` in the backlog, never as a permanent verdict, and
-re-check them before assuming a topic is out of reach.
+```bash
+vdr keywords:tracked <domain> --add "<keyword>"   # snapshots its SERP, enters the queue
+```
+
+Never add a keyword that fails those tests; an untracked keyword is simply
+not in the queue, which is the only rejection record needed.
+
+**Rejections expire.** Re-read every snapshot and re-run `keywords:suggest`
+on each research run, including terms a past run passed over. SERPs move: a
+term rejected at DR gap +20 can sit at gap -9 six weeks later. Never treat a
+past rejection as a permanent verdict; the stored snapshots and live suggest
+output are the source of truth, re-check them before assuming a topic is out
+of reach.
 
 **Stale-claim sweep.** Every research run, grep already-published articles for
 countable facts that drift (feature counts, prices, plan limits, quotas,
-"seven workflows", "three platforms"). Any that no longer match `product.md`
-goes into the backlog as a fix task before new writing starts.
+"seven workflows", "three platforms"). Fix any that no longer match
+`product.md` before new writing starts.
 
 ## Steps 1-9: Writing run
 
-1. **Pick keyword** - take the oldest `pending` backlog entry. Backlog empty?
-   STOP, tell user to run a research run (Step 0). Never substitute a nearby
-   topic. If the entry is stale (>30 days), re-verify:
-   `vdr keywords:research "<keyword>" --domain <domain>`.
+1. **Pick keyword** - `vdr keywords:tracked <domain>`, then drop every
+   tracked keyword the site already has an article or page for (same site
+   scan as the cannibalization gate; a published keyword stays tracked for
+   rank monitoring, it just leaves the writing queue). From the remainder,
+   take the one with the oldest winnable snapshot (`boost`/`advanced` tier,
+   gap <= 0, or an existing 4-30 position). Nothing qualifies? STOP, tell
+   user to run a research run (Step 0). Never substitute a nearby topic. If
+   the snapshot is stale (>30 days), re-verify first:
+   `vdr keywords:tracked <domain> --refresh <id>`.
 
    *User-requested topic:* when the user asks for a specific subject, do not
-   free-write it. Turn it into a keyword, run `keywords:tracked` first and
-   `keywords:research` if untracked, then add it to the backlog with source
-   `user request <date>`. If the SERP is out of reach (positive gap on an
+   free-write it. Turn it into a keyword, check `keywords:tracked` first and
+   run `keywords:research` if untracked, then enter it into the queue with
+   `keywords:tracked --add`. If the SERP is out of reach (positive gap on an
    `ultra` tier, or a wall of DR 70+ pages), report the numbers, propose the
    nearest winnable variant, and let the user choose. Never publish against a
    keyword the data rejects just because it was requested.
@@ -136,8 +153,9 @@ goes into the backlog as a fix task before new writing starts.
    - submit the URL for indexing (`vdr sites:submit-urls <domain> <url>`); new
      site: also request indexing in Search Console; established site: verify
      pickup later via `vdr sites:gsc-audit <domain>`
-   - mark the backlog entry `published` with date, URL, score, intent, and the
-     countable claims that will need re-checking later
+   - keep the keyword tracked: its snapshot now monitors the new article's
+     rank, and the published page removes it from the writing queue (Step 1
+     skips keywords the site already covers)
    - notify user with keyword, intent, score, and live URL
 
 ## What this skill is not

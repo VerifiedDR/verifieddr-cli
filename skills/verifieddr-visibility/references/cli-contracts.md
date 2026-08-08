@@ -60,15 +60,15 @@ vdr authority:dr anything.com
   "dr": {
     "domain": "anything.com",
     "dr": 62,
-    "source": "ahrefs",
+    "source": "verifieddr",
     "listed": false,
     "slug": null
   }
 }
 ```
 
-Domain Rating relayed straight from Ahrefs, so the domain does not have to be
-on VerifiedDR and nobody has to have submitted it. Use this to score a
+Domain Rating for any domain, so it does not have to be on VerifiedDR and
+nobody has to have submitted it. Use this to score a
 prospect, competitor, sponsor, or link target before it is tracked; never tell
 a user to submit a site just to read its DR.
 
@@ -371,9 +371,9 @@ vdr sites:visibility example.com --reset-prompts
 # -> { "ok": true, "prompts": [ ... ] }  (reseeded from tracked keywords)
 ```
 
-Questions must be 8-140 characters and must not name the owner's own site
-(the API rejects self-naming questions with `400`: a question that names the
-site guarantees a mention and would make the score meaningless). Duplicates
+Questions must be 8-140 characters. Naming the owner's own site is allowed:
+branded questions measure whether assistants know the site when asked
+directly, while neutral ones measure unprompted visibility. Duplicates
 return `400`, and an unknown `location` does too. Questions are asked globally
 unless pinned to a country, and pinning needs a paid plan. The prompt budget is
 account-wide, not per site: over it, writes return `402` naming the limit and
