@@ -404,12 +404,12 @@ Coach commands:
   vdr analyze <domain>                   Score, main issue, top actions
   vdr diagnose <domain>                  Why TrueDR is lower than DR
   vdr actions <domain>                   Ranked actions by impact/effort/confidence
-  vdr opportunities <domain>             Verified partners, directories, backlink ideas
-  vdr opportunities <domain> --contact <slug> --dry-run   Preview drafted mail to a partner
-  vdr opportunities <domain> --contact <slug> --approve   Send the previewed draft
+  vdr exchanges <domain>                 Verified link exchange matches
+  vdr exchanges <domain> --contact <slug> --dry-run   Preview one-link-each proposal
+  vdr exchanges <domain> --contact <slug> --approve   Send the approved proposal
   vdr audit backlinks <domain>           Backlink risk review
   vdr explain <domain>                   Client/founder-ready explanation
-  vdr next <domain>                      Best next action, partner included
+  vdr next <domain>                      Best next action, exchange included
 
   analyze and next read your AI Visibility score first when the domain is one
   of your sites, so the top action reflects AI answers, not just backlinks.
@@ -453,7 +453,7 @@ Earn (sell links on your websites):
   vdr earn:earnings                      Pending, due, and paid
 
 Inbox:
-  vdr inbox:list [--limit n] [--offset n] Partnership conversations + unread
+  vdr inbox:list [--limit n] [--offset n] Exchange conversations + unread
   vdr inbox:thread <id>                  One conversation with its messages
   vdr inbox:thread <id> --reply "<text>" Send a reply as you
   vdr inbox:thread <id> --read           Mark it read
@@ -511,10 +511,10 @@ Your own sites (owner-scoped):
 discover:find filters:
   --category <slug>  --min-truedr <n>  --min-dr <n>
   --traffic-validated  --include-unverified  --limit <n> (max 50)
-  --opportunities-for <domain>           Site-specific partner matches
+  --exchanges-for <domain>               Site-specific link exchange matches
 
-opportunities filters:
-  --type <all|partners|directories|backlinks>  --category <slug>  --min-truedr <n>
+exchanges filters:
+  --category <slug>  --min-truedr <n>
   --limit <n> (max 25)  --json
   --contact <slug|domain>  --dry-run (preview + store draft)
   --approve (send stored draft)  --subject <text>  --message <text>
@@ -529,6 +529,7 @@ const ALIASES: Record<string, string> = {
 	analyze: "coach:analyze",
 	diagnose: "coach:diagnose",
 	actions: "coach:actions",
+	exchanges: "coach:opportunities",
 	opportunities: "coach:opportunities",
 	audit: "coach:audit",
 	explain: "coach:explain",
@@ -638,6 +639,11 @@ type Lookup = {
 };
 
 type OpportunityCandidate = Lookup & {
+	exchange?: {
+		type?: string;
+		reason?: string;
+		fitReasons?: string[];
+	};
 	opportunity?: {
 		type?: string;
 		reason?: string;
@@ -929,7 +935,7 @@ function coachActions(
 				title: "Fix weak AI visibility before chasing more links",
 				detail: `AI answers name this site in ${answered ?? "few answers"}.${rivals} Start with the questions where a rival is cited and the site is not.`,
 				impact: "High, this is the metric the plan meters and guarantees",
-				// Above partner outreach on purpose. Outreach scores 14 (9 + low
+				// Above exchange outreach on purpose. Outreach scores 14 (9 + low
 				// effort + high confidence), and fixing this is medium effort, so
 				// anything under 12 here would sort a weak score below link work
 				// and quietly contradict what the ladder is supposed to say.
@@ -952,14 +958,14 @@ function coachActions(
 	}
 
 	actions.push({
-		title: "Contact one verified partner",
+		title: "Propose one verified link exchange",
 		detail:
-			"Use VerifiedDR's partner matching to find a reachable site with category, TrueDR, DR, and traffic fit, then approve one focused outreach email.",
-		impact: "High, roughly +3 to +8 TrueDR when the partnership earns a relevant mention or collaboration",
+			"Use VerifiedDR's exchange matching to find a reachable site with audience, category, TrueDR, DR, and traffic fit. Preview a proposal for one relevant editorial link each before sending.",
+		impact: "High, roughly +3 to +8 TrueDR when the exchange earns one relevant editorial link",
 		impactScore: 9,
 		effort: "low",
 		confidence: "high",
-		run: `vdr opportunities ${domain}`,
+		run: `vdr exchanges ${domain}`,
 	});
 
 	if (referringDomains == null || referringDomains < 50) {
@@ -971,7 +977,7 @@ function coachActions(
 			impactScore: 6,
 			effort: "low",
 			confidence: "high",
-			run: `vdr opportunities ${domain} --type directories`,
+			run: "vdr discover:find --category directories --limit 10",
 		});
 	}
 
@@ -1224,7 +1230,7 @@ function candidateLabel(
 	const metric = `TrueDR ${trueDr}, DR ${dr}${
 		traffic == null ? "" : `, traffic ${traffic}`
 	}`;
-	const name = site.title || site.domain || `Potential partner ${index + 1}`;
+	const name = site.title || site.domain || `Potential exchange ${index + 1}`;
 	const domain = site.domain && site.domain !== name ? ` (${site.domain})` : "";
 	return `${name}${domain}: ${metric}`;
 }
@@ -1234,7 +1240,7 @@ async function fetchOpportunityCandidates(
 	domain: string,
 	params: Record<string, string>,
 ): Promise<OpportunityCandidate[]> {
-	const q = new URLSearchParams({ opportunitiesFor: domain, ...params });
+	const q = new URLSearchParams({ exchangesFor: domain, ...params });
 	const result = await requestResult(
 		args,
 		"GET",
@@ -1245,7 +1251,7 @@ async function fetchOpportunityCandidates(
 		true,
 	);
 	const sites =
-		(result.data.opportunities as { candidates?: unknown[] } | undefined)
+		(result.data.exchanges as { candidates?: unknown[] } | undefined)
 			?.candidates ?? [];
 	return sites.filter((site): site is OpportunityCandidate =>
 		Boolean(site && typeof site === "object"),
@@ -1279,70 +1285,9 @@ async function partnershipCandidates(
 		);
 		return sites.slice(0, limit);
 	} catch {
-		process.stderr.write(
-			"partnership candidates unavailable; showing base opportunities\n",
-		);
+		process.stderr.write("link exchange matches unavailable\n");
 		return null;
 	}
-}
-
-/**
- * Best-effort candidate lookup for a contact target, so drafted outreach can
- * cite the actual matched angle. Deliberately unfiltered: contact accepts any
- * discoverable candidate, so the draft lookup must too.
- */
-async function findContactCandidate(
-	args: string[],
-	domain: string,
-	target: string,
-): Promise<OpportunityCandidate | null> {
-	try {
-		const sites = await fetchOpportunityCandidates(args, domain, {
-			limit: "25",
-			minTrueDr: "0",
-		});
-		const want = target.trim().toLowerCase();
-		return (
-			sites.find(
-				(site) =>
-					site.slug?.trim().toLowerCase() === want ||
-					site.domain?.trim().toLowerCase() === want,
-			) ?? null
-		);
-	} catch {
-		return null;
-	}
-}
-
-function draftOutreach(
-	domain: string,
-	target: string,
-	candidate?: OpportunityCandidate | null,
-): { subject: string; message: string } {
-	const fallbackName = target
-		.replace(/[-_]+/g, " ")
-		.replace(/\s+(com|io|dev|me|best|net|org|co|app|ai)$/i, "")
-		.trim();
-	const targetName = candidate?.title || candidate?.domain || fallbackName;
-	const reasons = [
-		candidate?.opportunity?.reason,
-		...(candidate?.opportunity?.fitReasons ?? []),
-	]
-		.filter((reason): reason is string => Boolean(reason?.trim()))
-		.slice(0, 2);
-	const fit =
-		reasons.length > 0
-			? `I found ${targetName} through VerifiedDR's partner matching: ${reasons.join("; ").replace(/[.\s]+$/, "")}.`
-			: "VerifiedDR matched our sites as a partnership fit based on category overlap and comparable TrueDR.";
-	const angle = candidate?.opportunity?.type?.trim().toLowerCase();
-	const proposal =
-		angle && angle !== "partnership"
-			? `I'd like to explore ${/^[aeiou]/.test(angle) ? "an" : "a"} ${angle} between ${targetName} and ${domain}, or a mutual mention or content collaboration, whatever fits best on your side.`
-			: "I'd like to explore a co-marketing swap: a mutual mention, a content collaboration, or an integration, whatever fits best on your side.";
-	return {
-		subject: `Partnership idea: ${domain} x ${targetName}`,
-		message: `Hi, I run ${domain}. ${fit} ${proposal} Open to ideas.`,
-	};
 }
 
 function shellQuote(value: string): string {
@@ -1351,7 +1296,7 @@ function shellQuote(value: string): string {
 
 async function contactPartnershipOpportunity(args: string[]): Promise<void> {
 	const target = option(args, "--contact");
-	if (!target) fail("--contact requires a listed opportunity slug or domain.", 2);
+	if (!target) fail("--contact requires a listed exchange match slug or domain.", 2);
 	const domain = commandDomainArg(args);
 	const dryRun = flag(args, "--dry-run");
 	const approve = flag(args, "--approve") && !dryRun;
@@ -1361,28 +1306,20 @@ async function contactPartnershipOpportunity(args: string[]): Promise<void> {
 	// A dry run previews drafted copy and stores it locally; the actual send
 	// requires either --approve (send the stored draft unchanged) or the
 	// approved subject and message passed back explicitly.
-	let drafted = false;
 	if (approve && (!subject || !message)) {
 		const saved = readState().drafts?.[draftKey(domain, target)];
 		if (!saved) {
 			fail(
-				`No stored draft for ${target}. Preview one first with:\n  vdr opportunities ${domain} --contact ${target} --dry-run`,
+				`No stored draft for ${target}. Preview one first with:\n  vdr exchanges ${domain} --contact ${target} --dry-run`,
 				2,
 			);
 		}
 		subject = subject || saved.subject;
 		message = message || saved.message;
 	}
-	if (dryRun && (!subject || !message)) {
-		const candidate = await findContactCandidate(args, domain, target);
-		const draft = draftOutreach(domain, target, candidate);
-		subject = subject || draft.subject;
-		message = message || draft.message;
-		drafted = true;
-	}
-	if (!subject || !message) {
+	if (!dryRun && (!subject || !message)) {
 		fail(
-			`Outreach copy is required to send. Preview a draft first with:\n  vdr opportunities ${domain} --contact ${target} --dry-run\nthen send it unchanged with --approve, or pass edited --subject and --message on the send.`,
+			`Approved proposal copy is required to send. Preview it first with:\n  vdr exchanges ${domain} --contact ${target} --dry-run\nthen send it unchanged with --approve, or pass edited --subject and --message.`,
 			2,
 		);
 	}
@@ -1390,12 +1327,12 @@ async function contactPartnershipOpportunity(args: string[]): Promise<void> {
 	// filters for the candidate list. Contact must accept any discoverable
 	// candidate, or slugs surfaced by discover:find 404 on contact.
 	const body: Json = {
-		opportunitiesFor: domain,
+		exchangesFor: domain,
 		target,
 		limit: 25,
 		minTrueDr: Number(option(args, "--min-truedr") || "0"),
-		subject,
-		message,
+		...(subject ? { subject } : {}),
+		...(message ? { message } : {}),
 	};
 	const category = option(args, "--category");
 	if (category) body.category = category;
@@ -1404,7 +1341,7 @@ async function contactPartnershipOpportunity(args: string[]): Promise<void> {
 	}
 
 	const result = await requestData(args, "POST", "/api/v1/find", body);
-	const contact = result.contact as
+	const contact = result.exchange as
 		| {
 				dryRun?: boolean;
 				sent?: boolean;
@@ -1430,7 +1367,7 @@ async function contactPartnershipOpportunity(args: string[]): Promise<void> {
 			},
 		};
 		writeState(state);
-		const approveCommand = `vdr opportunities ${domain} --contact ${target} --approve`;
+		const approveCommand = `vdr exchanges ${domain} --contact ${target} --approve`;
 		if (json) {
 			out({
 				ok: true,
@@ -1444,19 +1381,17 @@ async function contactPartnershipOpportunity(args: string[]): Promise<void> {
 			return;
 		}
 		printLines([
-			`Dry run: partnership email to ${label}.`,
-			drafted
-				? "Drafted copy (edit anything below before sending):"
-				: null,
+			`Dry run: link exchange proposal to ${label}.`,
+			"Standard one-link-each proposal (edit anything below before sending):",
 			previewSubject ? `Subject: ${previewSubject}` : null,
 			previewMessage ? `Message: ${previewMessage}` : null,
 			quota
-				? `Partnership contacts: ${quota.used ?? "?"}/${quota.limit ?? "unlimited"} used (${quota.plan ?? "plan"})`
+				? `Exchange proposals: ${quota.used ?? "?"}/${quota.limit ?? "unlimited"} used (${quota.plan ?? "plan"})`
 				: null,
 			"Nothing was sent. Send this exact draft with:",
 			`  ${approveCommand}`,
 			"Or edit it on the send:",
-			`  vdr opportunities ${domain} --contact ${target} --subject ${shellQuote(previewSubject ?? "")} --message ${shellQuote(previewMessage ?? "")}`,
+			`  vdr exchanges ${domain} --contact ${target} --subject ${shellQuote(previewSubject ?? "")} --message ${shellQuote(previewMessage ?? "")}`,
 		]);
 		return;
 	}
@@ -1484,10 +1419,10 @@ async function contactPartnershipOpportunity(args: string[]): Promise<void> {
 		return;
 	}
 	printLines([
-		`Sent partnership email to ${label}.`,
+		`Sent link exchange proposal to ${label}.`,
 		contact?.subject ? `Subject: ${contact.subject}` : null,
 		quota
-			? `Partnership contacts: ${quota.used ?? "?"}/${quota.limit ?? "unlimited"} used (${quota.plan ?? "plan"})`
+			? `Exchange proposals: ${quota.used ?? "?"}/${quota.limit ?? "unlimited"} used (${quota.plan ?? "plan"})`
 			: null,
 	]);
 }
@@ -1499,12 +1434,12 @@ async function coachOpportunities(
 	if (option(args, "--contact")) {
 		return contactPartnershipOpportunity(args);
 	}
-	const type = option(args, "--type") || "all";
+	const type = "exchanges";
 	const domain = lookup.domain || domainArg(args);
 	const trust = num(lookup.authority?.trustScore);
 	const referringDomains = num(lookup.evidence?.referringDomains);
 	const topBacklinks = lookup.evidence?.topBacklinks ?? [];
-	const wantPartners = type === "all" || type === "partners";
+	const wantPartners = true;
 	// Null means the candidate fetch failed; [] means no matches at the
 	// current filters, which gets its own retry guidance below.
 	const candidates = wantPartners
@@ -1514,26 +1449,12 @@ async function coachOpportunities(
 	const contactedOn = (site: OpportunityCandidate): string | null =>
 		contactedEntry(state, domain, site)?.sentAt?.slice(0, 10) ?? null;
 	const opportunities = [
-		type === "all" || type === "directories"
-			? `Relevant directories: ${
-					referringDomains == null || referringDomains < 50
-						? "start here because the referring-domain base is still thin."
-						: "use selective category, startup, SaaS, founder, and local directories with real editorial standards."
-				}`
-			: null,
-		type === "all" || type === "partners"
-			? `Partner links: ask customers, integrations, communities, and portfolio pages for contextual mentions${
-					topBacklinks.length > 0
-						? ` similar to ${topBacklinks[0]?.sourceDomain || "the strongest current referring domains"}.`
-						: "."
-				}`
-			: null,
-		type === "all" || type === "backlinks"
-			? `Backlink risk review: ${
-					trust != null && trust < 60
-						? "aggregate trust is weak, so review irrelevant or low-trust patterns before scaling outreach."
-						: "keep new links relevant so the trust score does not lag DR."
-				}`
+		`Exchange one relevant editorial link each with a verified website whose audience overlaps ${domain}.`,
+		trust != null && trust < 60
+			? "Prioritize topical fit and a strong TrueDR so the new link improves trust as well as DR."
+			: "Keep both links inside useful, relevant content. Avoid bulk swaps and sitewide footer links.",
+		referringDomains != null && referringDomains < 50
+			? "A well-matched exchange can help broaden this site's thin referring-domain base."
 			: null,
 	].filter((line): line is string => Boolean(line));
 	if (flag(args, "--json")) {
@@ -1549,7 +1470,7 @@ async function coachOpportunities(
 				trueDr: num(site.authority?.trueDr),
 				dr: num(site.authority?.dr),
 				traffic: num(site.evidence?.traffic),
-				opportunity: site.opportunity ?? null,
+				exchange: site.exchange ?? site.opportunity ?? null,
 				contactedAt: contactedOn(site),
 			})),
 		});
@@ -1558,37 +1479,38 @@ async function coachOpportunities(
 	const minTrueDr = option(args, "--min-truedr") || "20";
 	const noMatches = wantPartners && candidates != null && candidates.length === 0;
 	const lines = [
-		`Opportunities for ${domain}:`,
+		`Link exchanges for ${domain}:`,
 		"",
 		...opportunities.map((line, index) => `${index + 1}. ${line}`),
 		candidates != null && candidates.length > 0 ? "" : null,
 		candidates != null && candidates.length > 0
-			? "Potential partnerships:"
+			? "Verified exchange matches:"
 			: null,
 		...(candidates ?? []).map((site, index) => {
 			const ref = site.slug || site.domain || "";
 			const sentOn = contactedOn(site);
-			const angle = site.opportunity?.reason
+			const exchange = site.exchange ?? site.opportunity;
+			const angle = exchange?.reason
 				? `
-   Angle: ${site.opportunity.type || "Partnership"} - ${site.opportunity.reason}`
+	   Fit: ${exchange.type || "Link exchange"} - ${exchange.reason}`
 				: "";
 			const contactLines = sentOn
 				? `
-   Already contacted on ${sentOn}. Re-preview: vdr opportunities ${domain} --contact ${ref} --dry-run`
+	   Already contacted on ${sentOn}. Re-preview: vdr exchanges ${domain} --contact ${ref} --dry-run`
 				: `
-   Preview drafted mail: vdr opportunities ${domain} --contact ${ref} --dry-run
-   Send the preview: vdr opportunities ${domain} --contact ${ref} --approve`;
+	   Preview proposal: vdr exchanges ${domain} --contact ${ref} --dry-run
+	   Send the approved proposal: vdr exchanges ${domain} --contact ${ref} --approve`;
 			return `${index + 1}. ${candidateLabel(site, index)}${angle}${contactLines}`;
 		}),
 		noMatches ? "" : null,
 		noMatches
-			? `No partner matches with TrueDR >= ${minTrueDr} and validated traffic yet.`
+			? `No exchange matches with TrueDR >= ${minTrueDr} and validated traffic yet.`
 			: null,
 		noMatches
-			? `Retry with a lower bar: vdr opportunities ${domain} --min-truedr 10`
+			? `Retry with a lower bar: vdr exchanges ${domain} --min-truedr 10`
 			: null,
 		noMatches
-			? `Or narrow by niche: vdr opportunities ${domain} --category <slug> (list: vdr categories:list)`
+			? `Or narrow by niche: vdr exchanges ${domain} --category <slug> (list: vdr categories:list)`
 			: null,
 		"",
 		"Next:",
@@ -1650,8 +1572,8 @@ function coachAuditBacklinks(lookup: Lookup): void {
 		"Next:",
 		trust != null && trust < 60
 			? "Prioritize reviewing weak or irrelevant referring domains and outgrow them with clean, relevant links."
-			: "Focus on adding relevant directory and partner links.",
-		`Run: vdr opportunities ${domain}`,
+			: "Focus on relevant directory links and verified link exchanges.",
+		`Run: vdr exchanges ${domain}`,
 	]);
 }
 
@@ -1662,17 +1584,18 @@ async function coachNext(
 ): Promise<void> {
 	const action = coachActions(lookup, visibility)[0];
 	const domain = lookup.domain || commandDomainArg(args);
-	const partnerCandidates = action?.run.startsWith("vdr opportunities ")
+	const exchangeCandidates = action?.run.startsWith("vdr exchanges ")
 		? ((await partnershipCandidates(lookup, args)) ?? [])
 		: [];
 	const state = readState();
-	// Prefer a partner that has not been contacted yet; a repeated suggestion
+	// Prefer a match that has not been contacted yet; a repeated suggestion
 	// reads as stale, and there is usually a fresh candidate right behind it.
-	const partner =
-		partnerCandidates.find(
+	const match =
+		exchangeCandidates.find(
 			(site) => !contactedEntry(state, domain, site),
-		) ?? partnerCandidates[0];
-	const partnerRef = partner ? partner.slug || partner.domain || "" : "";
+		) ?? exchangeCandidates[0];
+	const matchRef = match ? match.slug || match.domain || "" : "";
+	const exchange = match?.exchange ?? match?.opportunity;
 	printLines([
 		`Best next action for ${domain}:`,
 		action.title,
@@ -1680,17 +1603,17 @@ async function coachNext(
 		`Why: ${action.detail}`,
 		`Heuristic impact: ${action.impact}`,
 		`Run: ${action.run}`,
-		partner ? "" : null,
-		partner ? "Suggested partner:" : null,
-		partner ? candidateLabel(partner, 0) : null,
-		partner?.opportunity?.reason
-			? `Angle: ${partner.opportunity.type || "Partnership"} - ${partner.opportunity.reason}`
+		match ? "" : null,
+		match ? "Suggested exchange:" : null,
+		match ? candidateLabel(match, 0) : null,
+		exchange?.reason
+			? `Fit: ${exchange.type || "Link exchange"} - ${exchange.reason}`
 			: null,
-		partnerRef
-			? `Preview before sending: vdr opportunities ${domain} --contact ${partnerRef} --dry-run`
+		matchRef
+			? `Preview before sending: vdr exchanges ${domain} --contact ${matchRef} --dry-run`
 			: null,
-		partnerRef
-			? `Send the preview: vdr opportunities ${domain} --contact ${partnerRef} --approve`
+		matchRef
+			? `Send the preview: vdr exchanges ${domain} --contact ${matchRef} --approve`
 			: null,
 	]);
 }
@@ -1838,7 +1761,7 @@ async function coach(command: string, args: string[]): Promise<void> {
 		}
 	}
 	// Contact only needs the domain string, so skip the lookup call: a
-	// partnership contact spends one quota unit, not two.
+	// An exchange proposal spends one quota unit, not two.
 	if (command === "coach:opportunities" && option(args, "--contact")) {
 		return contactPartnershipOpportunity(args);
 	}
@@ -2377,8 +2300,9 @@ async function main(): Promise<void> {
 			if (minTrueDr) q.set("minTrueDr", minTrueDr);
 			const minDr = option(args, "--min-dr");
 			if (minDr) q.set("minDr", minDr);
-			const opportunitiesFor = option(args, "--opportunities-for");
-			if (opportunitiesFor) q.set("opportunitiesFor", opportunitiesFor);
+			const exchangesFor =
+				option(args, "--exchanges-for") || option(args, "--opportunities-for");
+			if (exchangesFor) q.set("exchangesFor", exchangesFor);
 			if (flag(args, "--traffic-validated")) q.set("trafficValidated", "true");
 			if (flag(args, "--include-unverified")) q.set("includeUnverified", "true");
 			const limit = option(args, "--limit");

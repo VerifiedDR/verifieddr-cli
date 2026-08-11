@@ -3,8 +3,7 @@
 A tiny, dependency-free CLI for the [VerifiedDR](https://verifieddr.com) API.
 Use it to see how often ChatGPT, Perplexity, and Google AI Mode name your site,
 change the questions they are asked, work a generated growth plan, understand
-why a website's **TrueDR** is weak, and find the next verified partner to
-contact.
+why a website's **TrueDR** is weak, and find the next verified link exchange.
 The lower-level API commands still return clean JSON for scripts, CI,
 dashboards, and AI agents.
 
@@ -32,8 +31,8 @@ vdr sites:visibility verifieddr.com
 # Get a score, diagnosis, and next actions
 vdr analyze verifieddr.com
 
-# Surface verified partners worth contacting
-vdr opportunities verifieddr.com
+# Surface verified link exchange matches
+vdr exchanges verifieddr.com
 ```
 
 Your key is in your VerifiedDR dashboard, under **API**. The API needs a paid
@@ -151,12 +150,12 @@ The coach commands turn that data into advice:
 vdr analyze example.com              # score, main issue, top 3 actions
 vdr diagnose example.com             # why TrueDR is lower than DR
 vdr actions example.com              # ranked by impact, effort, confidence
-vdr opportunities example.com        # verified partners, directories, backlink ideas
-vdr opportunities example.com --contact partner-slug --dry-run  # preview drafted mail
-vdr opportunities example.com --contact partner-slug --approve  # send the previewed draft
+vdr exchanges example.com            # verified link exchange matches
+vdr exchanges example.com --contact match-slug --dry-run  # preview one-link-each proposal
+vdr exchanges example.com --contact match-slug --approve  # send the approved proposal
 vdr audit backlinks example.com      # backlink risk review
 vdr explain example.com              # client/founder-ready explanation
-vdr next example.com                 # best next action, partner included
+vdr next example.com                 # best next action, exchange match included
 ```
 
 `analyze` and `next` read your AI Visibility score first when the domain is one
@@ -169,35 +168,35 @@ reprinted the same ranked action list under different headings, or reprinted
 change fields `sites:monitor` reports with real deltas. Running one now names
 its replacement.
 
-The coach loop is partner-first: `vdr next` prefers one concrete verified
-partner action when that is the fastest useful visibility move. `vdr
-opportunities` shows potential partnership candidates, the suggested outreach
-angle, and the exact command to approve before sending. Partner names are shown
-in full on every plan; only the monthly contact limit is plan-governed. Partner
-matching uses the lookup and opportunities APIs, so listing can spend two quota
-calls; a `--contact` call spends one. `--dry-run` drafts outreach copy that
-cites the matched angle, previews it, and stores it locally in
+The coach loop is exchange-first: `vdr next` prefers one concrete verified
+link exchange when that is the fastest useful visibility move. `vdr exchanges`
+shows matches, explains the audience and trust fit, and prints the exact command
+to approve before sending. Match names are shown in full on every plan; only the
+monthly proposal limit is plan-governed. Exchange matching uses the lookup and
+exchange APIs, so listing can spend two quota calls; a `--contact` call spends
+one. `--dry-run` asks VerifiedDR to draft a focused proposal for one relevant
+editorial link each, previews it, and stores it locally in
 `~/.verifieddr/state.json`. Sending requires either `--approve` (send the
 stored draft unchanged) or explicit `--subject` and `--message` for edited
-copy. Sent contacts are logged locally, so candidate lists mark partners you
+copy. Sent proposals are logged locally, so candidate lists mark matches you
 already reached out to and `vdr next` prefers a fresh one. Add `--json` to
-`opportunities` or a contact call for machine-readable output.
+`exchanges` or a contact call for machine-readable output.
 
-Paid plans can contact a listed partner without seeing the owner's email
-address; the plan sets the monthly contact limit (Pro 20, Max 50, Ultra
+Paid plans can propose an exchange without seeing the other owner's email
+address; the plan sets the monthly proposal limit (Pro 20, Max 50, Ultra
 unlimited). Use `--dry-run` first to validate the target, quota, and message
 before sending:
 
 ```bash
-vdr opportunities example.com --contact partner-slug --dry-run
-vdr opportunities example.com --contact partner-slug --approve
-vdr opportunities example.com --contact partner-slug --message "Custom outreach copy..."
+vdr exchanges example.com --contact match-slug --dry-run
+vdr exchanges example.com --contact match-slug --approve
+vdr exchanges example.com --contact match-slug --message "Custom proposal copy..."
 ```
 
-The email is sent through VerifiedDR's partnership mail system, using the same
+The proposal is sent through VerifiedDR's exchange inbox, using the same
 ownership, opt-out, quota, and confirmation flow as the dashboard UI.
-Free users receive an upgrade link before partner details or outreach can start:
-`https://verifieddr.com/pricing?source=cli&feature=partnerships`.
+Free users receive an upgrade link before exchange details or outreach can start:
+`https://verifieddr.com/pricing?source=cli&feature=exchanges`.
 
 The API commands follow a `resource:action` shape:
 
@@ -208,7 +207,7 @@ vdr authority:lookup stripe.com       # DR, TrueDR, trust score, evidence
 vdr map stripe.com                    # terminal backlink map
 vdr map stripe.com --json             # raw DR Map data
 vdr discover:find --category ai --min-truedr 50 --traffic-validated --limit 10
-vdr discover:find --opportunities-for example.com --limit 10
+vdr discover:find --exchanges-for example.com --limit 10
 vdr badge:snippets stripe.com         # badge / embed snippets
 vdr categories:list                   # valid category values
 
@@ -326,7 +325,7 @@ public request-indexing API for regular pages; for Google, keep your sitemap
   link before the placement is marked verified. Earnings are USD minor units:
   `pending` is accepted work not yet due, `due` is waiting on the next payout
   run, `paid` is settled.
-- **Inbox** (`inbox:*`): partnership conversations, same threads as the
+- **Inbox** (`inbox:*`): link exchange conversations, same threads as the
   dashboard, with the unread count the sidebar badge reads. A reply is mailed to
   a real person as you. Draft and send on the user's word rather than answering
   their inbox for them.
@@ -379,7 +378,7 @@ commands:
    two runs.
 2. **Growth Loop:** generate the plan, work the highest-impact task, and close
    it from the CLI.
-3. **Partner Outreach:** find one verified partner, preview the outreach with
+3. **Link Exchange:** find one verified match, preview the proposal with
    `--dry-run`, then send only after approval.
 4. **Progress Report:** compare two AI Visibility runs, check TrueDR and DR
    movement, and write a founder or client-ready update.
@@ -410,19 +409,19 @@ mark it done once I confirm I have shipped it.
 ```text
 Act as my visibility coach for example.com.
 Use VerifiedDR to diagnose why TrueDR is lower than DR, rank the top fixes by
-impact and effort, and make verified partner outreach the next action when it is
+impact and effort, and make a verified link exchange the next action when it is
 the fastest path.
 ```
 
 ```text
 Review example.com every week with VerifiedDR.
 Compare the last two AI Visibility runs, check whether TrueDR is improving,
-find the next partnership opportunity, and write a clear progress update.
+find the next link exchange, and write a clear progress update.
 ```
 
 ```text
-Find one partner opportunity for example.com and draft the outreach.
-Use VerifiedDR opportunities, run the contact command with --dry-run so I can
+Find one link exchange for example.com and draft the proposal.
+Use VerifiedDR exchanges, run the contact command with --dry-run so I can
 approve the exact subject/message, then send only after I approve the target and
 copy.
 ```

@@ -12,9 +12,9 @@ lookup data into advice. They print plain text, not JSON.
 vdr analyze example.com
 vdr diagnose example.com
 vdr actions example.com
-vdr opportunities example.com
-vdr opportunities example.com --contact partner-slug
-vdr opportunities example.com --contact partner-slug --dry-run
+vdr exchanges example.com
+vdr exchanges example.com --contact match-slug --dry-run
+vdr exchanges example.com --contact match-slug --approve
 vdr map example.com
 vdr audit backlinks example.com
 vdr explain example.com
@@ -27,23 +27,22 @@ returns an error naming its replacement (`growth:tasks --run`, `sites:monitor`).
 `analyze` prints current TrueDR/DR/gap, the main issue, top actions, heuristic
 TrueDR impact, and the exact command to run next. `next` is the shortest
 recommendation surface: one action, why it matters, heuristic impact, and the
-command to execute. It prefers one concrete verified partner action when
+command to execute. It prefers one concrete verified link exchange when
 VerifiedDR can surface a reasonable match.
 
-`opportunities` also calls the server-side opportunities mode to list potential
-partnership candidates, outreach angles, and contact commands. Partner names
-are shown in full on every plan; only the monthly contact limit is
-plan-governed. Listing can spend two quota calls: one lookup and one
-opportunities request.
+`exchanges` also calls the server-side exchange mode to list verified matches,
+trust evidence, and proposal commands. Match names are shown in full on every
+plan; only the monthly proposal limit is plan-governed. Listing can spend two
+quota calls: one lookup and one exchange request.
 
-`opportunities --contact <slug-or-domain>` sends mail to the listed candidate
-through VerifiedDR's partnership mail system, using the same source ownership
+`exchanges --contact <slug-or-domain>` sends mail to the listed match through
+VerifiedDR's exchange inbox, using the same source ownership
 check, target opt-out handling, contact quota, request logging, and sender
 confirmation as the dashboard UI. It spends one quota call and skips the
 lookup. `--dry-run` validates the target and quota and previews the outreach
-copy; when `--subject`/`--message` are omitted, the CLI drafts them for the
-preview. Sending requires explicit `--subject` and `--message` (outreach is
-human-approved; the server rejects sends without them). Free users receive `402` with `upgradeUrl`,
+copy; when `--subject`/`--message` are omitted, the server drafts the standard
+one-link-each editorial proposal. Sending requires the approved subject and
+message. Free users receive `402` with `upgradeUrl`,
 `requiredPlan`, and `blockedFeature`; agents should show that URL as the next
 step.
 
@@ -167,16 +166,16 @@ to open the site's DR Map or wait for the next backlink refresh.
 vdr discover:find --category ai --min-truedr 50 --traffic-validated --limit 10
 # GET /api/v1/find?category=ai&minTrueDr=50&trafficValidated=true&limit=10
 
-vdr discover:find --opportunities-for example.com --limit 10
-# GET /api/v1/find?opportunitiesFor=example.com&limit=10
+vdr discover:find --exchanges-for example.com --limit 10
+# GET /api/v1/find?exchangesFor=example.com&limit=10
 ```
 
 Returns `{ find: { filters, sites: [ <lookup payload>, ... ] } }`, ranked by
 TrueDR then DR. Filters: `--category <slug>`, `--min-truedr <n>`, `--min-dr <n>`,
 `--traffic-validated`, `--include-unverified`, `--limit <n>` (max 50). Use for
-partner / sponsor / trusted-site discovery; for keyword work use
+general trusted-site discovery; for keyword work use
 `keywords:research` / `keywords:suggest` instead.
-With `--opportunities-for`, the endpoint returns `{ opportunities: { domain,
+With `--exchanges-for`, the endpoint returns `{ exchanges: { domain,
 redacted: false, filters, candidates } }` using the site-specific TrueDR Connect
 match ranking.
 
@@ -420,7 +419,8 @@ vdr account:usage
 used, limit, remaining }, entitlements, upgradeUrl }`. `plan` is `null` on the
 free tier, otherwise `starter` (sold as Pro), `max`, or `ultra`. `prompts` is
 the account-wide AI search prompt budget across every website; `entitlements`
-also reports `keywordsPerWebsite`, `partnerRequests`, `dailyRefresh`,
+also reports `keywordsPerWebsite`, exchange proposals (`partnerRequests` in the
+API response), `dailyRefresh`,
 `visibilityGuarantee`, and `apiCalls`. Read this before a bulk question import
 or a session of runs.
 
@@ -557,7 +557,7 @@ vdr inbox:list --limit 25 --offset 0
 vdr inbox:thread <requestId>
 # GET /api/v1/inbox/<requestId> -> { ok, thread: { messages, website, deal, ... } }
 
-vdr inbox:thread <requestId> --reply "Happy to swap"
+vdr inbox:thread <requestId> --reply "Happy to exchange one relevant link each"
 # POST /api/v1/inbox/<requestId> { body }  -> { ok, sent: true, thread }
 
 vdr inbox:thread <requestId> --read

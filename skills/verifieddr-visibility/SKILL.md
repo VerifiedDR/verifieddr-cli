@@ -5,14 +5,14 @@ description: >-
   analyze, diagnose, lookup, monitor, export, TrueDR gaps, DR and trust
   evidence, traffic validation, backlink maps and alerts, badge snippets,
   growth plans and tasks, AI visibility scores, tracked questions and scans,
-  keyword difficulty and winnable keywords, partner discovery and outreach,
+  keyword difficulty and winnable keywords, verified link exchange matching,
   marketplace inventory, carts, orders and briefs, publisher assignments and
-  earnings, partnership inbox replies, plan limits, prompt budgets, and API
+  earnings, link exchange inbox replies, plan limits, prompt budgets, and API
   quota. Trigger when a user mentions VerifiedDR, TrueDR, trust score, AI or
   LLM visibility, keyword research by DR, backlink packages, placements,
-  publisher work, partnership opportunities, or agent-friendly VerifiedDR
-  workflows. Keep recommendations within VerifiedDR's visibility, authority,
-  marketplace, and partnership surfaces rather than generic SEO audits.
+  publisher work, link exchanges, or agent-friendly VerifiedDR workflows.
+  Keep recommendations within VerifiedDR's visibility, authority, exchange,
+  and marketplace surfaces rather than generic SEO audits.
 ---
 
 # VerifiedDR Visibility
@@ -47,8 +47,8 @@ npx -y verifieddr sites:visibility verifieddr.com
 # Get a score, diagnosis, and next actions
 npx -y verifieddr analyze verifieddr.com
 
-# Surface verified partners worth contacting
-npx -y verifieddr opportunities verifieddr.com
+# Find verified websites open to a relevant link exchange
+npx -y verifieddr exchanges verifieddr.com
 ```
 
 Before running a CLI workflow, check whether `vdr` is available. Use `vdr`
@@ -63,12 +63,12 @@ the secret into chat. Once configured, verify the connection with
 `account:usage` before starting the requested workflow.
 
 Every data command requires a `vdr_...` API key and spends one unit of the
-owner's plan quota (`help` and `--version` are local exceptions). The API is
-paid-only: Pro includes 1,000 calls/month, Max 5,000, and Ultra 10,000. A free
-key authenticates but every call answers `402` with an upgrade link, so on a
-free account surface the upgrade instead of retrying. Remaining quota and tier
-are printed to stderr. Coach commands print plain-English guidance; API commands
-print JSON on stdout with an `ok` boolean.
+owner's quota (`help` and `--version` are local exceptions). A verified free
+account gets 25 lifetime calls, limited to 5/minute, for public authority reads,
+AI Visibility question setup, and the account's one limited first scan. Pro
+includes 1,000 calls/month, Max 5,000, and Ultra 10,000 across the full API.
+Remaining quota and tier are printed to stderr. Coach commands print
+plain-English guidance; API commands print JSON on stdout with an `ok` boolean.
 
 Check `vdr account:usage` before a session that will add questions or run
 scans: the AI search prompt budget is account-wide (Pro 25, Max 75, Ultra 200,
@@ -93,8 +93,8 @@ Stdio-only clients (Claude Desktop and similar) can run the bundled bridge:
 command `npx`, args `["-y", "verifieddr", "mcp"]`, with `VERIFIEDDR_API_KEY` in
 the environment. Both paths hit the same server, spend the same plan quota, and
 follow the same approval rules as the CLI commands in this skill; tool names
-mirror the commands (`analyze` -> `lookup_site`, `opportunities` ->
-`find_partner_opportunities`, and so on) and the full catalog comes from
+mirror the commands (`analyze` -> `lookup_site`, `exchanges` ->
+`find_link_exchanges`, and so on) and the full catalog comes from
 `tools/list`. Docs: https://verifieddr.com/mcp
 
 ## Command Choice
@@ -118,12 +118,12 @@ explanation:
 vdr analyze <domain>                  # score, main issue, top 3 actions
 vdr diagnose <domain>                 # why TrueDR is lower than DR
 vdr actions <domain>                  # ranked by impact/effort/confidence
-vdr opportunities <domain>            # verified partners, directories, backlink ideas
-vdr opportunities <domain> --contact <slug> # send drafted mail to a listed partner
-vdr opportunities <domain> --contact <slug> --dry-run # preview contact payload
+vdr exchanges <domain>                # verified link exchange matches
+vdr exchanges <domain> --contact <slug> --dry-run # preview one-link-each proposal
+vdr exchanges <domain> --contact <slug> --approve # send the approved proposal
 vdr audit backlinks <domain>          # backlink risk review
 vdr explain <domain>                  # client/founder-ready explanation
-vdr next <domain>                     # best next action, partner included
+vdr next <domain>                     # best next action, exchange included
 ```
 
 `analyze` and `next` read the owner-scoped AI Visibility snapshot first and
@@ -134,18 +134,15 @@ That costs one extra quota call, and only the key owner's own sites have one.
 printed templates rather than data. Use `growth:tasks --run` for a plan and
 `sites:monitor` for movement, and never tell a user to run the removed verbs.
 
-The coach loop is partner-first: `next` prefers one concrete verified partner
-action when that is the fastest useful visibility move. `opportunities` surfaces
-partnership candidates with full names on every plan, the outreach angle, and
-the exact command to approve before sending. Contact a listed partner with
-`vdr opportunities <domain> --contact <slug-or-domain>`, which sends mail
-through VerifiedDR's partnership mail system without exposing the target
-owner's email. Run `--dry-run` first: it validates the target and quota and
-previews drafted subject/message copy (or your own `--subject`/`--message`).
-Sending always requires explicit `--subject` and `--message`; approve the
-previewed copy by passing it on the send command, which the dry-run output
-prints ready to run. A contact call spends one quota unit. The plan only sets
-the monthly partner-contact limit; when it is reached, surface the CLI/API
+The coach loop prefers one relevant link exchange when that is the fastest
+useful visibility move. `exchanges` returns verified matches with full names on
+every plan, plus the trust and audience-fit evidence. Start with
+`vdr exchanges <domain> --contact <slug-or-domain> --dry-run`. It validates the
+target and quota and returns the standard one-link-each editorial proposal
+without exposing the other owner's email. Approve the exact target, subject,
+and message before sending it with `--approve`, or edit the copy first. A
+proposal call spends one quota unit. The plan only sets the monthly exchange
+limit; when it is reached, surface the CLI/API
 `upgradeUrl`.
 
 Use API commands when the user needs raw data, scripting, or integrations:
@@ -156,7 +153,7 @@ vdr authority:lookup <domain>        # DR, TrueDR, trust data for ANY approved s
 vdr map <domain>                     # backlink map (`authority:map` also works)
 vdr map <domain> --json              # raw DR Map data
 vdr discover:find --category ai --min-truedr 50 --traffic-validated --limit 10
-vdr discover:find --opportunities-for example.com --limit 10
+vdr discover:find --exchanges-for example.com --limit 10
 vdr badge:snippets <domain>          # badge / embed snippets
 vdr categories:list                 # valid category filter values
 vdr keywords:research "<keyword>" [--domain <yours>]  # DR the Google top 10 demands
@@ -169,7 +166,7 @@ vdr sites:list                       # list YOUR sites
 vdr sites:get <domain>               # one of YOUR sites with stored trends
 vdr sites:truedr <domain> [--detailed] # owner-only TrueDR signal breakdown
 vdr sites:visibility <domain>        # owner-only AI Visibility snapshot (ChatGPT/Perplexity/Google AI Mode)
-vdr sites:visibility <domain> --run  # ask the tracked questions now (paid, 1/site/week)
+vdr sites:visibility <domain> --run  # one limited free first scan; then paid, 1/site/week
 vdr sites:visibility <domain> --from <iso> --to <iso>    # diff two stored runs
 vdr sites:visibility <domain> --add-prompt "<question>" [--location <code>]
 vdr sites:visibility <domain> --import "<q1>" "<q2>" [--location <code>]
@@ -217,17 +214,6 @@ from real data, and get approval before `--add-prompt`, `--remove-prompt`, or
 `--run`. Question edits are cheap and reversible; a run is neither.
 
 ```text
-Run a fresh AI Visibility scan for example.com.
-Read the stored snapshot first and note its run date and score; if the last run
-is under a week old, say so and stop. Otherwise ask before spending the weekly
-run, then diff the fresh run against the previous one and tell me the score
-delta, the mentions gained and lost, and the new cited sources worth chasing.
-```
-
-Read with `vdr sites:visibility`, run with `--run` only after approval, and
-compare with `--from <iso> --to <iso>` once the run finishes.
-
-```text
 Run the VerifiedDR growth loop for example.com.
 Generate a growth plan with `vdr growth:tasks example.com --run`, tell me the
 single highest-impact task and why, and mark it done only once I confirm I
@@ -238,48 +224,50 @@ shipped it.
 Run the VerifiedDR trust loop for example.com.
 Analyze the TrueDR gap, then run `vdr sites:truedr example.com --detailed` to
 check the owner-scoped recommendations and weakest backlink evidence. Then
-choose the best partner opportunity, draft the outreach angle, and end with the
-exact command I should approve next.
+choose the best link exchange match, verify its trust evidence, preview the
+one-link-each proposal, and end with the exact command I should approve next.
 ```
 
 ```text
 Act as my visibility coach for example.com.
 Use VerifiedDR to diagnose why TrueDR is lower than DR, rank the top fixes by
-impact and effort, and make verified partner outreach the next action when it is
+impact and effort, and make a verified link exchange the next action when it is
 the fastest path.
 ```
 
 ```text
 Review example.com every week with VerifiedDR.
 Compare the last two AI Visibility runs with --from/--to, check whether TrueDR
-is improving, find the next partnership opportunity, and write a clear progress
+is improving, find the next link exchange match, and write a clear progress
 update.
 ```
 
 ```text
-Find one partner opportunity for example.com and draft the outreach.
-Use VerifiedDR opportunities, run the contact command with --dry-run so I can
-approve the exact subject/message, then send only after I approve the target and
-copy.
+Find one link exchange for example.com.
+Use VerifiedDR exchanges, verify the other website's trust evidence, and run
+the proposal with --dry-run so I can approve the exact target, subject, and
+message. Send only after I approve all three.
 ```
 
 - `analyze` first when the user asks what to do about a domain. It returns the
   current score, main issue, top actions, heuristic impact, and exact next
   command.
 - `next` when the user wants the fastest useful answer: one action, why it
-  matters, heuristic impact, and the command to run. Expect partner outreach to
-  be the default when VerifiedDR can surface a reasonable match.
+  matters, heuristic impact, and the command to run. Expect a relevant link
+  exchange to be the default when VerifiedDR can surface a strong match.
 - `diagnose` / `explain` when the user needs a reason TrueDR is lower than DR,
   especially in plain English for a client, founder, or stakeholder.
-- `actions` when the user asks for prioritization, or `growth:tasks --run` when
-  they want a fresh tracked plan.
-- `opportunities` when the user needs directories, backlink ideas, or partner
-  targets. Partner names are shown in full on every plan; the plan governs the
-  monthly contact limit. Use
+- `actions` / `fix` / `boost` when the user asks for prioritization or a growth
+  plan.
+- `exchanges` when the user needs verified websites open to a relevant
+  editorial link exchange. Match names are shown in full on every plan; the
+  plan governs the monthly proposal limit. Use
   `--contact <slug-or-domain> --dry-run` to validate the target, quota, and exact
   payload for approval, then remove `--dry-run` only after the user approves the
   listed target and copy. Sending requires both `--subject` and `--message`;
-  it sends mail through VerifiedDR. If the CLI returns an
+  it sends mail through VerifiedDR. Verify the target with `authority:lookup`
+  and `check_site` when a stored site check is available. Reject bulk swaps,
+  footer links, and unrelated pages. If the CLI returns an
   `upgradeUrl`, include it in the next action.
 - `authority:dr` when the domain is not on VerifiedDR, or you do not know
   whether it is: scoring a prospect, competitor, sponsor, or link target before
@@ -294,10 +282,10 @@ copy.
   cached backlink rows only. If no cached map exists, tell the user to open the
   site's DR Map or wait for the next backlink refresh; do not present it as a
   fresh crawler.
-- `discover:find` for partner, sponsorship, integration, guest-post, or agency
-  prospecting. Filter by `--category`, `--min-truedr`, `--min-dr`,
+- `discover:find` for broad website prospecting. Filter by `--category`,
+  `--min-truedr`, `--min-dr`,
   `--traffic-validated`, `--include-unverified`, `--limit` (max 50). Add
-  `--opportunities-for <domain>` when the user needs site-specific partner
+  `--exchanges-for <domain>` when the user needs site-specific link exchange
   matches. Ranked by TrueDR then DR for broad discovery.
 - `keywords:research "<keyword>"` when the user asks whether a keyword is
   reachable, how hard a SERP is, or what DR it takes to rank. Returns the live
@@ -363,13 +351,14 @@ copy.
   adding questions for a non-global business; a US-default answer set is the
   wrong measurement for a Dutch or German company.
 - `sites:visibility <domain> --run` when the user wants a reading now: the same
-  call as the dashboard's Run button. Paid plans only, one run per site per
-  week, and it takes minutes because it buys an answer per question per
-  platform. A second call inside the window returns the stored run instead of
-  spending twice. Paid plans also get a daily refresh with no action needed, so
-  do not run on a schedule of your own. After editing questions, tell the user
-  the next refresh will pick them up, and only offer `--run` if they want the
-  answer immediately.
+  call as onboarding and the dashboard's Run button. A free account gets one
+  first scan across the whole account: up to 4 questions, each asked on
+  ChatGPT, Perplexity, and Google AI Mode for up to 12 answers, with the exact
+  cited pages and ranked actions withheld. Any existing run on any owned site
+  means that free scan is spent. Paid plans raise the prompt allowance, allow
+  one run per site per week, and include the full result/history. A paid second
+  call inside the window returns the stored run instead of spending twice.
+  After editing questions, only offer `--run` if the user wants an answer now.
 - `sites:visibility <domain> --from <iso> --to <iso>` to answer "did we move?".
   The timestamps are `at` values from the snapshot's history. It diffs the
   score, the brands gained and lost, and the questions that flipped. Stored
@@ -422,7 +411,7 @@ copy.
 - `earn:earnings` for pending, due, and paid totals in USD minor units. Payouts
   are manual and run against a minimum balance, so a non-zero `due` is normal
   for a while: do not report it as a missed payment.
-- `inbox:list` / `inbox:thread` for partnership conversations. These are
+- `inbox:list` / `inbox:thread` for link exchange and marketplace conversations. These are
   messages between two real people, and a reply is mailed as the user. Summarize
   what is waiting, draft a reply, and send only on the user's word. Never
   answer someone's inbox autonomously, and never accept or commit to a deal in
@@ -445,7 +434,7 @@ hidden aliases, but prefer the `resource:action` forms above.
   `keywords:suggest`. Require a paid plan on the key's account, any tier; free
   keys get `402` with `upgradeUrl`, `requiredPlan`, and `blockedFeature`. The
   ladder meters volume, not features: every paid tier reaches every command,
-  and differs in prompts, tracked keywords, partner contacts, and API calls.
+  and differs in prompts, tracked keywords, exchange proposals, and API calls.
 - **Owner-scoped (key owner's own sites only):** `sites:list`, `sites:get`,
 	`sites:truedr`, `sites:visibility`, `growth:tasks`, `sites:export`,
   `sites:monitor`, `sites:gsc-performance`, `sites:gsc-audit`, `sites:submit`,
@@ -466,12 +455,11 @@ hidden aliases, but prefer the `resource:action` forms above.
 - Treat coach command output as guidance and API command output as JSON. Preserve
   important fields in summaries.
 - If a command returns a `402`, the feature is locked or a budget is
-  exhausted. Include any returned `upgradeUrl` in the answer. On a free
-  account the API itself is locked, so every call 402s: say so once and stop
-  rather than trying other commands. On a paid plan, `402` means that plan's
-  quota or prompt budget is spent, so suggest waiting for the reset, removing a
-  tracked question, or upgrading. Never retry in a loop. `401` means a missing
-  or invalid key.
+  exhausted. Include any returned `upgradeUrl` in the answer. On a free account,
+  `402` can mean the endpoint is outside the trial allowlist, the 25 lifetime
+  calls are spent, or the one free first scan already exists. On a paid plan it
+  means the monthly API quota or prompt budget is spent. Never retry a `402` in
+  a loop. `401` means a missing or invalid key.
 - `--run` on `sites:visibility` and `growth:tasks` spends real money at the
   model vendors. Run it when the user asked for fresh data, not to refresh
   something you could read from the stored snapshot.
