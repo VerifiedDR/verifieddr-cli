@@ -70,16 +70,11 @@ a {
 	text-decoration: none;
 }
 
-.brand-mark {
-	display: grid;
+.brand-logo {
+	display: block;
 	width: 30px;
 	height: 30px;
-	place-items: center;
-	border-radius: 8px;
-	background: var(--yellow);
-	color: var(--yellow-ink);
-	font-size: 14px;
-	font-weight: 900;
+	object-fit: contain;
 }
 
 nav {
