@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>VerifiedDR CLI Docs | Website Authority and AI Visibility</title>
+		<meta
+			name="description"
+			content="Install the VerifiedDR CLI, connect your API key, check website authority, track AI visibility, research keywords, and run growth work from your terminal."
+		/>
+		<meta name="robots" content="index, follow" />
+		<link
+			rel="canonical"
+			href="https://verifieddr.github.io/verifieddr-cli/"
+		/>
+		<meta property="og:type" content="website" />
+		<meta property="og:title" content="VerifiedDR CLI Docs" />
+		<meta
+			property="og:description"
+			content="Check website authority and AI visibility from your terminal."
+		/>
+		<meta
+			property="og:url"
+			content="https://verifieddr.github.io/verifieddr-cli/"
+		/>
+		<meta name="theme-color" content="#0b0b0c" />
+		<link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+		<link rel="stylesheet" href="./styles.css" />
+		<script type="application/ld+json">
+			{
+				"@context": "https://schema.org",
+				"@type": "SoftwareApplication",
+				"name": "VerifiedDR CLI",
+				"applicationCategory": "DeveloperApplication",
+				"operatingSystem": "Windows, macOS, Linux",
+				"url": "https://verifieddr.github.io/verifieddr-cli/",
+				"downloadUrl": "https://www.npmjs.com/package/verifieddr",
+				"codeRepository": "https://github.com/VerifiedDR/verifieddr-cli",
+				"isPartOf": {
+					"@type": "WebApplication",
+					"name": "VerifiedDR",
+					"url": "https://verifieddr.com"
+				},
+				"license": "https://opensource.org/license/mit"
+			}
+		</script>
+	</head>
+	<body>
+		<header class="site-header">
+			<div class="shell header-inner">
+				<a class="brand" href="#top" aria-label="VerifiedDR CLI docs home">
+					<span class="brand-mark" aria-hidden="true">V</span>
+					<span>VerifiedDR CLI</span>
+				</a>
+				<nav aria-label="Main navigation">
+					<a href="#install">Install</a>
+					<a href="#commands">Commands</a>
+					<a href="#mcp">MCP</a>
+					<a href="https://github.com/VerifiedDR/verifieddr-cli">GitHub</a>
+				</nav>
+			</div>
+		</header>
+
+		<main id="top">
+			<section class="hero shell">
+				<div class="hero-copy">
+					<h1>Run website visibility work from your terminal</h1>
+					<p class="lede">
+						The VerifiedDR CLI helps you check website authority, see where AI
+						names your brand, find search terms within reach, and choose your next
+						growth step.
+					</p>
+					<div class="actions">
+						<a class="button primary" href="#install">Install the CLI</a>
+						<a class="button secondary" href="https://verifieddr.com"
+							>Visit VerifiedDR</a
+						>
+					</div>
+				</div>
+				<div class="terminal" aria-label="VerifiedDR CLI example">
+					<div class="terminal-bar">
+						<span></span><span></span><span></span>
+						<b>terminal</b>
+					</div>
+					<pre><code><span class="prompt">$</span> npx -y verifieddr analyze example.com
+
+Visibility Score  62/100
+Domain Rating     47
+TrueDR            41
+
+Next step
+Publish one page for a buyer question where
+a rival appears and your site does not.</code></pre>
+				</div>
+			</section>
+
+			<section class="section shell" id="install">
+				<div class="section-heading">
+					<h2>Install and connect</h2>
+					<p>Use Node.js 18 or newer. Your API key stays in your own shell.</p>
+				</div>
+				<div class="steps">
+					<article class="card step">
+						<span class="step-number">1</span>
+						<h3>Install the command</h3>
+						<pre><code>npm install -g verifieddr</code></pre>
+						<p>You can also run each command with <code>npx verifieddr</code>.</p>
+					</article>
+					<article class="card step">
+						<span class="step-number">2</span>
+						<h3>Add your API key</h3>
+						<pre><code>export VERIFIEDDR_API_KEY=vdr_your_key</code></pre>
+						<p>
+							Create a key in the
+							<a href="https://verifieddr.com/dashboard/api">VerifiedDR dashboard</a>.
+						</p>
+					</article>
+					<article class="card step">
+						<span class="step-number">3</span>
+						<h3>Check the connection</h3>
+						<pre><code>vdr account:usage</code></pre>
+						<p>See your plan, API quota, and AI question space before you act.</p>
+					</article>
+				</div>
+			</section>
+
+			<section class="section shell" id="commands">
+				<div class="section-heading">
+					<h2>Start with a clear answer</h2>
+					<p>Each command has local help. Reading help uses no key or quota.</p>
+				</div>
+				<div class="command-grid">
+					<article class="card command-card">
+						<h3>Find the best next step</h3>
+						<p>Get a score, the main issue, and three actions for your site.</p>
+						<pre><code>vdr analyze example.com</code></pre>
+					</article>
+					<article class="card command-card">
+						<h3>See your AI visibility</h3>
+						<p>Review the buyer questions, rival brands, and cited pages.</p>
+						<pre><code>vdr sites:visibility example.com</code></pre>
+					</article>
+					<article class="card command-card">
+						<h3>Check public authority</h3>
+						<p>
+							Read DR and trust data for a listed site. Try it with
+							<a href="https://www.wysera.ai/">Wysera</a>.
+						</p>
+						<pre><code>vdr authority:lookup wysera.ai</code></pre>
+					</article>
+					<article class="card command-card">
+						<h3>Research a search term</h3>
+						<p>See the DR level of the top results and your gap to that level.</p>
+						<pre><code>vdr keywords:research "best crm" \
+  --domain example.com</code></pre>
+					</article>
+					<article class="card command-card">
+						<h3>Find link partners</h3>
+						<p>See matched sites and check each fit before you send a proposal.</p>
+						<pre><code>vdr exchanges example.com</code></pre>
+					</article>
+					<article class="card command-card">
+						<h3>Read any command contract</h3>
+						<p>Check flags, cost, output, and approval rules before a call.</p>
+						<pre><code>vdr help sites:visibility</code></pre>
+					</article>
+				</div>
+			</section>
+
+			<section class="section shell split" id="mcp">
+				<div>
+					<div class="section-heading left">
+						<h2>Use the same tools through MCP</h2>
+						<p>
+							Connect Claude Code, Cursor, or another MCP client to the remote
+							VerifiedDR server. Each tool uses the same account and plan rules.
+						</p>
+					</div>
+					<a class="text-link" href="https://verifieddr.com/agents/mcp"
+						>Read the MCP setup guide <span aria-hidden="true">→</span></a
+					>
+				</div>
+				<div class="terminal compact">
+					<div class="terminal-bar">
+						<span></span><span></span><span></span>
+						<b>MCP setup</b>
+					</div>
+					<pre><code>claude mcp add --transport http verifieddr \
+  https://verifieddr.com/api/mcp \
+  --header "Authorization: Bearer vdr_your_key"</code></pre>
+				</div>
+			</section>
+
+			<section class="section shell boundaries">
+				<div class="section-heading">
+					<h2>You stay in control</h2>
+					<p>The CLI stops at the steps that need your choice or payment.</p>
+				</div>
+				<div class="boundary-list">
+					<div><b>Preview outreach</b><span>See a proposal before it sends.</span></div>
+					<div><b>Approve paid scans</b><span>Fresh AI runs start when you ask.</span></div>
+					<div><b>Pay in checkout</b><span>The CLI returns a link. You enter the card.</span></div>
+				</div>
+			</section>
+
+			<section class="cta shell">
+				<div>
+					<h2>Turn visibility data into your next step</h2>
+					<p>Open VerifiedDR to create your API key and connect the CLI.</p>
+				</div>
+				<a class="button primary" href="https://verifieddr.com">Open VerifiedDR</a>
+			</section>
+		</main>
+
+		<footer>
+			<div class="shell footer-inner">
+				<p>VerifiedDR CLI is open source under the MIT license.</p>
+				<div>
+					<a href="https://github.com/VerifiedDR/verifieddr-cli">Source</a>
+					<a href="https://www.npmjs.com/package/verifieddr">npm</a>
+					<a href="https://verifieddr.com/agents/cli">Full web docs</a>
+				</div>
+			</div>
+		</footer>
+	</body>
+</html>

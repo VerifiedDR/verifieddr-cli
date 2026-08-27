@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://verifieddr.github.io/verifieddr-cli/sitemap.xml
